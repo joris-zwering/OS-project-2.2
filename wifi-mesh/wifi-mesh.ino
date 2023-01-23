@@ -158,11 +158,11 @@ void onDroppedConnection(unsigned int nodeId) {
 }
 
 void sendLogsToServer() {
-  if (nodeNumber === 1) {
+  if (nodeNumber == 1) {
     // Loop trough every item in array
       // Inside for loop: make POST request to raspberry pi with every log entry
       // Remove log out of logs
-      sendEmptyLogsMessage()
+      sendEmptyLogsMessage();
   }
 }
 
