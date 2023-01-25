@@ -40,6 +40,9 @@ Task taskSendMessage(TASK_SECOND * 10 , TASK_FOREVER, &sendSensorData);
 //Create tasks: to store local data readings (every second)
 Task storeLocalSensorReadings(TASK_SECOND * 1 , TASK_FOREVER, &sendSensorData);
 
+//Create tasks: to check for temperature and humidity changes
+Task checkStatusTask(TASK_SECOND * 1 , TASK_FOREVER, &checkStatus);
+
 struct Log {
   int node;
   double temp;
@@ -77,13 +80,14 @@ String getReadings () {
 void sendSensorData () {
   // Lees sensorwaarde
   String msg = getReadings();
+  JSONVar messageObject = JSON.parse(msg.c_str());
   // Sla sensorwaarden op in logs
   int aantal_logs = sizeof(localData) / sizeof(LocalLog);
   logs[aantal_logs + 1].node = messageObject["node"];
-  logs[aantal_logs + 1].temp = messageObject['temp'];
-  logs[aantal_logs + 1].hum = messageObject['hum'];
+  logs[aantal_logs + 1].temp = messageObject["temp"];
+  logs[aantal_logs + 1].hum = messageObject["hum"];
   logs[aantal_logs + 1].pres = messageObject["pres"];
-  logs[aantal_logs + 1].logged_at = messageObject['logged_at'];
+  logs[aantal_logs + 1].logged_at = messageObject["logged_at"];
   // Broadcast = naar alle andere nodes inclusief deze node
   mesh.sendBroadcast(msg);
 }
@@ -96,7 +100,7 @@ void storeLocalData() {
   // Checken hoe groot de huidige array is
   // alternatief: aantal_logs = _countof(localData);
   int aantal_logs = sizeof(localData) / sizeof(LocalLog);
-  if (aantal_logs => 10) {
+  if (aantal_logs >= 10) {
     for (int i = aantal_logs - 1; i < 0; i--) {
       localData[i] = localData[i+1];
     }
@@ -267,13 +271,13 @@ void setup() {
   // Wordt elke 10 seconden uitgevoerd
   userScheduler.addTask(taskSendMessage);
 
-  userScheduler.addTask(storeLocalData);
+  userScheduler.addTask(storeLocalSensorReadings);
   
-  userScheduler.addTask(checkStatus);
+  userScheduler.addTask(checkStatusTask);
 
   taskSendMessage.enable();
-  storeLocalData.enable();
-  checkStatus.enable();
+  storeLocalSensorReadings.enable();
+  checkStatusTask.enable();
 }
 
 void loop() {
