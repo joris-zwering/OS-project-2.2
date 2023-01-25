@@ -58,7 +58,7 @@ struct LocalLog {
 };
 
 // Alloceer memory voor de logs
-struct Log *logs = (struct Log *) malloc(sizeof(struct Log) * 3000);
+struct Log *logs = (struct Log *) malloc(sizeof(struct Log) * 500);
 
 // Alloceer memory voor de logs (LOCAL CONTEXT)
 struct LocalLog *localData = (struct LocalLog *) malloc(sizeof(struct LocalLog) * 10);
