@@ -16,7 +16,7 @@
 Adafruit_BME280 bme;
 
 // Identifier voor deze node
-int nodeNumber = 1;
+int nodeNumber = 2;
 
 // Online nodes
 int onlineNodes[] = {};
@@ -38,7 +38,7 @@ String getReadings();
 Task taskSendMessage(TASK_SECOND * 10 , TASK_FOREVER, &sendSensorData);
 
 //Create tasks: to store local data readings (every second)
-Task storeLocalSensorReadings(TASK_SECOND * 1 , TASK_FOREVER, &sendSensorData);
+Task storeLocalSensorReadings(TASK_SECOND * 1 , TASK_FOREVER, &storeLocalSensorData);
 
 //Create tasks: to check for temperature and humidity changes
 Task checkStatusTask(TASK_SECOND * 1 , TASK_FOREVER, &checkStatus);
@@ -82,7 +82,7 @@ void sendSensorData () {
   String msg = getReadings();
   JSONVar messageObject = JSON.parse(msg.c_str());
   // Sla sensorwaarden op in logs
-  int aantal_logs = sizeof(localData) / sizeof(LocalLog);
+  size_t aantal_logs = sizeof(logs) / sizeof(logs[0]);
   logs[aantal_logs + 1].node = messageObject["node"];
   logs[aantal_logs + 1].temp = messageObject["temp"];
   logs[aantal_logs + 1].hum = messageObject["hum"];
@@ -90,28 +90,29 @@ void sendSensorData () {
   logs[aantal_logs + 1].logged_at = messageObject["logged_at"];
   // Broadcast = naar alle andere nodes inclusief deze node
   mesh.sendBroadcast(msg);
+
 }
 
-void storeLocalData() {
+void storeLocalSensorData() {
   // Lees sensorwaarde
   String msg = getReadings();
   JSONVar messageObject = JSON.parse(msg.c_str());
 
   // Checken hoe groot de huidige array is
   // alternatief: aantal_logs = _countof(localData);
-  int aantal_logs = sizeof(localData) / sizeof(LocalLog);
+  size_t aantal_logs = sizeof(localData) / sizeof(localData[0]);
   if (aantal_logs >= 10) {
     for (int i = aantal_logs - 1; i < 0; i--) {
       localData[i] = localData[i+1];
     }
-    localData[0].temp = messageObject['temp'];
-    localData[0].hum = messageObject['hum'];
-    localData[0].logged_at = messageObject['logged_at'];
+    localData[0].temp = messageObject["temp"];
+    localData[0].hum = messageObject["hum"];
+    localData[0].logged_at = messageObject["logged_at"];
   }
   else {
-    localData[aantal_logs + 1].temp = messageObject['temp'];
-    localData[aantal_logs + 1].hum = messageObject['hum'];
-    localData[aantal_logs + 1].logged_at = messageObject['logged_at'];
+    localData[aantal_logs + 1].temp = messageObject["temp"];
+    localData[aantal_logs + 1].hum = messageObject["hum"];
+    localData[aantal_logs + 1].logged_at = messageObject["logged_at"];
   }
 }
 
@@ -129,8 +130,8 @@ void checkStatus() {
   int current_hum = localData[0].hum;
   int average_temp = temp_sum / (aantal_logs - 1);
   int current_temp = localData[0].temp;
-  if (((current_temp / average_temp) < 0.8) && ((current_hum / average_hum) < 0.8)) {
-    // ALERT!!!
+  if (((current_temp / average_temp) < 0.9) && ((current_hum / average_hum) < 0.8)) {
+    //Alert
   }
 }
 
@@ -271,12 +272,12 @@ void setup() {
   // Wordt elke 10 seconden uitgevoerd
   userScheduler.addTask(taskSendMessage);
 
-  userScheduler.addTask(storeLocalSensorReadings);
+  //userScheduler.addTask(storeLocalSensorReadings);
   
   userScheduler.addTask(checkStatusTask);
 
   taskSendMessage.enable();
-  storeLocalSensorReadings.enable();
+  // storeLocalSensorReadings.enable();
   checkStatusTask.enable();
 }
 
