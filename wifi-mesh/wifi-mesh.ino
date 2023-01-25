@@ -5,6 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "cJSON.h"
+#include <time.h>
 
 // MESH Details
 #define   MESH_PREFIX     "ESP_NET_WERK_MESH" // Naam van mesh
@@ -28,21 +29,36 @@ painlessMesh  mesh;
 
 // PROTOTYPES
 void sendSensorData();
+void storeLocalSensorData();
 void onDroppedConnection(unsigned int nodeId );
+void checkStatus();
 String getReadings(); 
 
 //Create tasks: to send messages and get readings;
-Task taskSendMessage(TASK_SECOND * 5 , TASK_FOREVER, &sendSensorData);
+Task taskSendMessage(TASK_SECOND * 10 , TASK_FOREVER, &sendSensorData);
+
+//Create tasks: to store local data readings (every second)
+Task storeLocalSensorReadings(TASK_SECOND * 1 , TASK_FOREVER, &sendSensorData);
 
 struct Log {
   int node;
   double temp;
   double hum;
   double pres;
+  time_t logged_at;
+};
+
+struct LocalLog {
+  double temp;
+  double hum;
+  time_t logged_at;
 };
 
 // Alloceer memory voor de logs
-struct Log *logs = (struct Log *) malloc(sizeof(struct Log) * 200);
+struct Log *logs = (struct Log *) malloc(sizeof(struct Log) * 3000);
+
+// Alloceer memory voor de logs (LOCAL CONTEXT)
+struct LocalLog *localData = (struct LocalLog *) malloc(sizeof(struct LocalLog) * 10);
 
 String getReadings () {
   JSONVar jsonReadings;
@@ -51,6 +67,9 @@ String getReadings () {
   jsonReadings["temp"] = bme.readTemperature();
   jsonReadings["hum"] = bme.readHumidity();
   jsonReadings["pres"] = bme.readPressure()/100.0F;
+  time_t current_time;
+  time(&current_time);
+  jsonReadings["logged_at"] = current_time;
   readings = JSON.stringify(jsonReadings);
   return readings;
 }
@@ -58,8 +77,57 @@ String getReadings () {
 void sendSensorData () {
   // Lees sensorwaarde
   String msg = getReadings();
+  // Sla sensorwaarden op in logs
+  int aantal_logs = sizeof(localData) / sizeof(LocalLog);
+  logs[aantal_logs + 1].node = messageObject["node"];
+  logs[aantal_logs + 1].temp = messageObject['temp'];
+  logs[aantal_logs + 1].hum = messageObject['hum'];
+  logs[aantal_logs + 1].pres = messageObject["pres"];
+  logs[aantal_logs + 1].logged_at = messageObject['logged_at'];
   // Broadcast = naar alle andere nodes inclusief deze node
   mesh.sendBroadcast(msg);
+}
+
+void storeLocalData() {
+  // Lees sensorwaarde
+  String msg = getReadings();
+  JSONVar messageObject = JSON.parse(msg.c_str());
+
+  // Checken hoe groot de huidige array is
+  // alternatief: aantal_logs = _countof(localData);
+  int aantal_logs = sizeof(localData) / sizeof(LocalLog);
+  if (aantal_logs => 10) {
+    for (int i = aantal_logs - 1; i < 0; i--) {
+      localData[i] = localData[i+1];
+    }
+    localData[0].temp = messageObject['temp'];
+    localData[0].hum = messageObject['hum'];
+    localData[0].logged_at = messageObject['logged_at'];
+  }
+  else {
+    localData[aantal_logs + 1].temp = messageObject['temp'];
+    localData[aantal_logs + 1].hum = messageObject['hum'];
+    localData[aantal_logs + 1].logged_at = messageObject['logged_at'];
+  }
+}
+
+void checkStatus() {
+  int aantal_logs = sizeof(localData) / sizeof(LocalLog);
+  int temp_sum = 0;
+  int hum_sum = 0;
+  for (int i = 1; i < aantal_logs; i++) {
+    temp_sum += localData[i].temp;
+  }
+  for (int i = 1; i < aantal_logs; i++) {
+    hum_sum += localData[i].hum;
+  }
+  int average_hum = hum_sum / (aantal_logs - 1);
+  int current_hum = localData[0].hum;
+  int average_temp = temp_sum / (aantal_logs - 1);
+  int current_temp = localData[0].temp;
+  if (((current_temp / average_temp) < 0.8) && ((current_hum / average_hum) < 0.8)) {
+    // ALERT!!!
+  }
 }
 
 void sendEmptyLogsMessage() {
@@ -84,8 +152,9 @@ void receivedCallback( uint32_t from, String &msg ) {
   int type = messageObject["type"];
 
   // MESSAGE TYPES
-  // 1 = Synchroniseer logs
+  // 1 = Synchroniseer logs realtime (10 seconden)
   // 2 = Delete logs op alle nodes 
+  // 3 = Synchroniseert alle logs (elke 4 min) 
 
   if (type == 1) {
     // SYNC SENSOR DATA
@@ -93,12 +162,14 @@ void receivedCallback( uint32_t from, String &msg ) {
     double temp = messageObject["temp"];
     double hum = messageObject["hum"];
     double pres = messageObject["pres"];
+    time_t logged_at = messageObject["logged_at"];
 
     size_t currentNumberOfLogs = sizeof(logs)/sizeof(logs[0]);
     logs[currentNumberOfLogs + 1].node = node;
     logs[currentNumberOfLogs + 1].temp = temp;
     logs[currentNumberOfLogs + 1].hum = hum;
     logs[currentNumberOfLogs + 1].pres = pres;
+    logs[currentNumberOfLogs + 1].logged_at = logged_at;
   } else if (type == 2) {
     // FLUSH LOGS
     free(logs);
@@ -193,10 +264,16 @@ void setup() {
 
   mesh.onNodeTimeAdjusted(&nodeTimeAdjustedCallback);
 
-  // Wordt elke 5 seconden uitgevoerd
+  // Wordt elke 10 seconden uitgevoerd
   userScheduler.addTask(taskSendMessage);
 
+  userScheduler.addTask(storeLocalData);
+  
+  userScheduler.addTask(checkStatus);
+
   taskSendMessage.enable();
+  storeLocalData.enable();
+  checkStatus.enable();
 }
 
 void loop() {
