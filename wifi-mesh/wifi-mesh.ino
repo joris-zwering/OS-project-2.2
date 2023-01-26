@@ -21,6 +21,9 @@ int nodeNumber = 2;
 // Online nodes
 int onlineNodes[] = {};
 
+// Mastermode
+int master = 0;
+
 // String to send to other nodes with sensor readings
 String readings;
 
@@ -32,6 +35,9 @@ void sendSensorData();
 void storeLocalSensorData();
 void onDroppedConnection(unsigned int nodeId );
 void checkStatus();
+void sendAlive();
+void sendMessage3();
+void sendReply4();
 String getReadings(); 
 
 //Create tasks: to send messages and get readings;
@@ -42,6 +48,9 @@ Task storeLocalSensorReadings(TASK_SECOND * 1 , TASK_FOREVER, &storeLocalSensorD
 
 //Create tasks: to check for temperature and humidity changes
 Task checkStatusTask(TASK_SECOND * 1 , TASK_FOREVER, &checkStatus);
+
+//Create tasks: to check status of masternode
+Task sendAliveTask(TASK_SECOND * 5, TASK_FOREVER, &sendAlive);
 
 struct Log {
   int node;
@@ -77,6 +86,23 @@ String getReadings () {
   return readings;
 }
 
+void sendMessage3 () {
+  // stuurt een bericht om de logs te krijgen
+  JSONVar msg3;
+  msg3["type"] = 3;
+  msg3["nodeid"] = nodeNumber;
+  mesh.sendBroadcast(JSON.stringify(msg3));
+}
+
+int sendReply4 (int nodeid) {
+  // verstuurt het antwoord op een type 3 bericht
+  JSONVar msg4;
+  msg4["type"] = 4;
+  msg4["nodeid"] = nodeid;
+  msg4["logs"] = logs;
+  mesh.sendBroadcast(JSON.stringify(msg4));
+}
+
 void sendSensorData () {
   // Lees sensorwaarde
   String msg = getReadings();
@@ -91,6 +117,14 @@ void sendSensorData () {
   // Broadcast = naar alle andere nodes inclusief deze node
   mesh.sendBroadcast(msg);
 
+}
+
+void sendAlive () {
+  if (master == 1) {
+    JSONVar Alive;
+    Alive["type"] = 5;
+    mesh.sendBroadcast(JSON.stringify(Alive));
+  }
 }
 
 void storeLocalSensorData() {
@@ -178,6 +212,16 @@ void receivedCallback( uint32_t from, String &msg ) {
   } else if (type == 2) {
     // FLUSH LOGS
     free(logs);
+  } else if ((type == 3) && (master == 1)) {
+    int nodeid = messageObject["nodeid"];
+    sendReply4(nodeid);
+  } else if (type == 4) {
+    // **WERKT NOG NIET** ontvangt de volledige logs van de masternode
+    int nodeid = messageObject["nodeid"];
+    struct newlogs = messageObject["logs"];
+    if (nodeid == nodeNumber) {
+      logs = newlogs;
+    }
   }
 }
 
@@ -269,16 +313,28 @@ void setup() {
 
   mesh.onNodeTimeAdjusted(&nodeTimeAdjustedCallback);
 
+  // Stuur bij opstarten een type 3 message om alle logs van masternode te krijgen
+  sendMessage3();
+  for (int x = 0; x < 10; x++) {
+    if (logs != NULL) {
+      break;
+    } 
+    delay(1000);
+  }
+  
   // Wordt elke 10 seconden uitgevoerd
   userScheduler.addTask(taskSendMessage);
 
-  //userScheduler.addTask(storeLocalSensorReadings);
+  userScheduler.addTask(storeLocalSensorReadings);
   
   userScheduler.addTask(checkStatusTask);
+  
+  userScheduler.addTask(sendAliveTask);
 
   taskSendMessage.enable();
-  // storeLocalSensorReadings.enable();
+  storeLocalSensorReadings.enable();
   checkStatusTask.enable();
+  sendAliveTask.enable();
 }
 
 void loop() {
