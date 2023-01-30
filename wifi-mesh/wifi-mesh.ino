@@ -38,7 +38,7 @@ void checkStatus();
 void sendAlive();
 void sendMessage3();
 void sendReply4();
-String getReadings(); 
+String getReadings();
 
 //Create tasks: to send messages and get readings;
 Task taskSendMessage(TASK_SECOND * 10 , TASK_FOREVER, &sendSensorData);
@@ -51,6 +51,8 @@ Task checkStatusTask(TASK_SECOND * 1 , TASK_FOREVER, &checkStatus);
 
 //Create tasks: to check status of masternode
 Task sendAliveTask(TASK_SECOND * 5, TASK_FOREVER, &sendAlive);
+
+Task sendMessage3Task(TASK_SECOND * 20, 2, &sendMessage3);
 
 struct Log {
   int node;
@@ -91,16 +93,26 @@ void sendMessage3 () {
   JSONVar msg3;
   msg3["type"] = 3;
   msg3["nodeid"] = nodeNumber;
+  Serial.printf("Voor broadcast\n");
   mesh.sendBroadcast(JSON.stringify(msg3));
+  Serial.printf("Na broadcast\n");
 }
 
-int sendReply4 (int nodeid) {
+void sendReply4 (int nodeid) {
   // verstuurt het antwoord op een type 3 bericht
-  JSONVar msg4;
-  msg4["type"] = 4;
-  msg4["nodeid"] = nodeid;
-  msg4["logs"] = logs;
-  mesh.sendBroadcast(JSON.stringify(msg4));
+  int aantal_logs = sizeof(Log) / sizeof(logs[0]);
+  Serial.printf("%d\n", aantal_logs);
+  for (int i = 1; i <= aantal_logs; i++) {
+    JSONVar msg4;
+    msg4["type"] = 4;
+    msg4["nodeid"] = nodeid;
+    msg4["node"] = logs[i].node;
+    msg4["temp"] = logs[i].temp;
+    msg4["hum"] = logs[i].hum;
+    msg4["pres"] = logs[i].pres;
+    msg4["logged_at"] = logs[i].logged_at;
+    mesh.sendBroadcast(JSON.stringify(msg4));
+  }
 }
 
 void sendSensorData () {
@@ -114,6 +126,8 @@ void sendSensorData () {
   logs[aantal_logs + 1].hum = messageObject["hum"];
   logs[aantal_logs + 1].pres = messageObject["pres"];
   logs[aantal_logs + 1].logged_at = messageObject["logged_at"];
+
+  Serial.printf("%d\n", messageObject["temp"]);
   // Broadcast = naar alle andere nodes inclusief deze node
   mesh.sendBroadcast(msg);
 
@@ -210,15 +224,31 @@ void receivedCallback( uint32_t from, String &msg ) {
     logs[currentNumberOfLogs + 1].hum = hum;
     logs[currentNumberOfLogs + 1].pres = pres;
     logs[currentNumberOfLogs + 1].logged_at = logged_at;
+
   } else if (type == 2) {
     // FLUSH LOGS
     free(logs);
-  } else if ((type == 3) && (master == 1)) {
+  } else if ((type == 3)) {//&& (master == 1)) {
     int nodeid = messageObject["nodeid"];
     sendReply4(nodeid);
+    Serial.printf("Message 4 verzonden \n");
   } else if (type == 4) {
     // **WERKT NOG NIET** ontvangt de volledige logs van de masternode
     int nodeid = messageObject["nodeid"];
+    if (nodeid == nodeNumber) {
+      int node = messageObject["node"];
+      double temp = messageObject["temp"];
+      double hum = messageObject["hum"];
+      double pres = messageObject["pres"];
+      time_t logged_at = messageObject["logged_at"];
+
+      size_t currentNumberOfLogs = sizeof(logs)/sizeof(logs[0]);
+      logs[currentNumberOfLogs + 1].node = node;
+      logs[currentNumberOfLogs + 1].temp = temp;
+      logs[currentNumberOfLogs + 1].hum = hum;
+      logs[currentNumberOfLogs + 1].pres = pres;
+      logs[currentNumberOfLogs + 1].logged_at = logged_at;
+    }
     Serial.printf("Message type 4 werkt. \n");
 }
     
@@ -320,14 +350,16 @@ void setup() {
   mesh.onNodeTimeAdjusted(&nodeTimeAdjustedCallback);
 
   // Stuur bij opstarten een type 3 message om alle logs van masternode te krijgen
-  sendMessage3();
-  Serial.printf("Message type 3 werkt. \n");
-  for (int x = 0; x < 10; x++) {
-    if (logs != NULL) {
-      break;
-    } 
-    delay(1000);
-  }
+  userScheduler.addTask(sendMessage3Task);
+  //sendMessage3Task.enable();
+
+  // Serial.printf("Message type 3 werkt. \n");
+  // for (int x = 0; x < 10; x++) {
+  //   if (logs != NULL) {
+  //     break;
+  //   } 
+  //   delay(1000);
+  // }
   
   // Wordt elke 10 seconden uitgevoerd
   userScheduler.addTask(taskSendMessage);
@@ -342,6 +374,7 @@ void setup() {
   storeLocalSensorReadings.enable();
   checkStatusTask.enable();
   sendAliveTask.enable();
+
 }
 
 void loop() {
