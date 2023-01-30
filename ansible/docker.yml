@@ -14,6 +14,9 @@
          - ca-certificates
          - curl
          - software-properties-common
+         - python3-pip
+         - virtualenv
+         - python3-setuptools
        state: latest
 
     - name: Add docker gpg apt key
@@ -31,6 +34,23 @@
         name: docker-ce
         state: latest
 
+    - name: Install docker for pip
+      ansible.builtin.pip:
+        name: docker
+
     - name: Run Node-RED in Docker
       become: true
       command: docker run -it -d -p 1880:1880 --name mynodered nodered/node-red
+
+    - name: add node-red-node-mysql to node-red
+      community.docker.docker_container_exec: 
+        container: mynodered
+        command: npm i node-red-node-mysql
+      register: result
+
+    - name: restart container mynodered
+      community.docker.docker_container:
+        name: mynodered
+        image: nodered/node-red
+        state: started
+        restart: yes
