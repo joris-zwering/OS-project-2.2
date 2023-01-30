@@ -193,7 +193,8 @@ void receivedCallback( uint32_t from, String &msg ) {
   // MESSAGE TYPES
   // 1 = Synchroniseer logs realtime (10 seconden)
   // 2 = Delete logs op alle nodes 
-  // 3 = Synchroniseert alle logs (elke 4 min) 
+  // 3 = Als masternode stuur alle aanwezige logs naar nieuwe ESP
+  // 4 = Ontvang alle logs van masternode 
 
   if (type == 1) {
     // SYNC SENSOR DATA
@@ -218,11 +219,16 @@ void receivedCallback( uint32_t from, String &msg ) {
   } else if (type == 4) {
     // **WERKT NOG NIET** ontvangt de volledige logs van de masternode
     int nodeid = messageObject["nodeid"];
-    struct newlogs = messageObject["logs"];
-    if (nodeid == nodeNumber) {
-      logs = newlogs;
-    }
-  }
+    Serial.printf("Message type 4 werkt. \n");
+}
+    
+    // cJSON *rootObject = CJSON_Parse(messageObject);
+
+    // Log logs = messageObject["logs"];
+    // if (nodeid == nodeNumber) {
+    //   logs = logs;
+    // }
+  
 }
 
 int getRandomOnlineNode() {
@@ -315,6 +321,7 @@ void setup() {
 
   // Stuur bij opstarten een type 3 message om alle logs van masternode te krijgen
   sendMessage3();
+  Serial.printf("Message type 3 werkt. \n");
   for (int x = 0; x < 10; x++) {
     if (logs != NULL) {
       break;
