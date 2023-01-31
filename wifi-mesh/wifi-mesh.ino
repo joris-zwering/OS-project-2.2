@@ -12,9 +12,6 @@
 #define   MESH_PASSWORD   "OmdatHetNetWerkt" // Wachtwoord van mesh
 #define   MESH_PORT       5555  
 
-//BME object on the default I2C pins
-Adafruit_BME280 bme;
-
 // Identifier voor deze node
 int nodeNumber = 2;
 
@@ -24,6 +21,12 @@ int onlineNodes[] = {};
 // Mastermode
 int master = 0;
 
+// Counters voor aantal logs
+int aantal_logs = 0;
+int aantal_logs_local = 0;
+
+//BME object on the default I2C pins
+Adafruit_BME280 bme;
 // String to send to other nodes with sensor readings
 String readings;
 
@@ -37,22 +40,31 @@ void onDroppedConnection(unsigned int nodeId );
 void checkStatus();
 void sendAlive();
 void sendMessage3();
-void sendReply4();
+void sendReply4(int nodeid);
 String getReadings();
 
-//Create tasks: to send messages and get readings;
+/*
+* TASKS
+*/
+
+//Create task: to send messages and get readings;
 Task taskSendMessage(TASK_SECOND * 10 , TASK_FOREVER, &sendSensorData);
 
-//Create tasks: to store local data readings (every second)
+//Create task: to store local data readings (every second)
 Task storeLocalSensorReadings(TASK_SECOND * 1 , TASK_FOREVER, &storeLocalSensorData);
 
-//Create tasks: to check for temperature and humidity changes
+//Create task: to check for temperature and humidity changes
 Task checkStatusTask(TASK_SECOND * 1 , TASK_FOREVER, &checkStatus);
 
-//Create tasks: to check status of masternode
+//Create task: to check status of masternode
 Task sendAliveTask(TASK_SECOND * 5, TASK_FOREVER, &sendAlive);
 
+//Create task: to send send a message to receive all logs from the masternode
 Task sendMessage3Task(TASK_SECOND * 20, 2, &sendMessage3);
+
+/*
+* STRUCTURES
+*/
 
 struct Log {
   int node;
@@ -74,6 +86,11 @@ struct Log *logs = (struct Log *) malloc(sizeof(struct Log) * 500);
 // Alloceer memory voor de logs (LOCAL CONTEXT)
 struct LocalLog *localData = (struct LocalLog *) malloc(sizeof(struct LocalLog) * 10);
 
+
+/*
+* START OF CODE
+*/
+
 String getReadings () {
   JSONVar jsonReadings;
   jsonReadings["type"] = 1;
@@ -81,8 +98,8 @@ String getReadings () {
   jsonReadings["temp"] = bme.readTemperature();
   jsonReadings["hum"] = bme.readHumidity();
   jsonReadings["pres"] = bme.readPressure()/100.0F;
-  time_t current_time;
-  time(&current_time);
+  time_t current_time = time(NULL);
+  //printf("Current time: %s", ctime(&current_time));
   jsonReadings["logged_at"] = current_time;
   readings = JSON.stringify(jsonReadings);
   return readings;
@@ -93,47 +110,47 @@ void sendMessage3 () {
   JSONVar msg3;
   msg3["type"] = 3;
   msg3["nodeid"] = nodeNumber;
-  Serial.printf("Voor broadcast\n");
   mesh.sendBroadcast(JSON.stringify(msg3));
-  Serial.printf("Na broadcast\n");
 }
 
 void sendReply4 (int nodeid) {
   // verstuurt het antwoord op een type 3 bericht
-  int aantal_logs = sizeof(Log) / sizeof(logs[0]);
-  Serial.printf("%d\n", aantal_logs);
-  for (int i = 1; i <= aantal_logs; i++) {
+  for (int log_index = 1; log_index <= aantal_logs; log_index++) {
     JSONVar msg4;
     msg4["type"] = 4;
     msg4["nodeid"] = nodeid;
-    msg4["node"] = logs[i].node;
-    msg4["temp"] = logs[i].temp;
-    msg4["hum"] = logs[i].hum;
-    msg4["pres"] = logs[i].pres;
-    msg4["logged_at"] = logs[i].logged_at;
+    msg4["node"] = logs[log_index].node;
+    msg4["temp"] = logs[log_index].temp;
+    msg4["hum"] = logs[log_index].hum;
+    msg4["pres"] = logs[log_index].pres;
+    msg4["logged_at"] = logs[log_index].logged_at;
     mesh.sendBroadcast(JSON.stringify(msg4));
   }
 }
 
 void sendSensorData () {
-  // Lees sensorwaarde
+  // Lees sensorwaarde uit van functie en parse JSON
   String msg = getReadings();
   JSONVar messageObject = JSON.parse(msg.c_str());
+  
   // Sla sensorwaarden op in logs
-  size_t aantal_logs = sizeof(logs) / sizeof(logs[0]);
   logs[aantal_logs + 1].node = messageObject["node"];
   logs[aantal_logs + 1].temp = messageObject["temp"];
   logs[aantal_logs + 1].hum = messageObject["hum"];
   logs[aantal_logs + 1].pres = messageObject["pres"];
   logs[aantal_logs + 1].logged_at = messageObject["logged_at"];
-
-  Serial.printf("%d\n", messageObject["temp"]);
-  // Broadcast = naar alle andere nodes inclusief deze node
+  // Serial.printf("%d\n", aantal_logs);
+  // Serial.printf("%d\n", logs[1].node);
+  // Serial.printf("%lf\n", logs[1].temp);
+  // Serial.printf("%lf\n", logs[1].hum);
+  // Serial.printf("%lf\n", logs[1].pres);
+  aantal_logs += 1;
+  
+  // Broadcast = naar alle andere nodes
   mesh.sendBroadcast(msg);
-
 }
 
-void sendAlive () {
+void sendAlive() {
   if (master == 1) {
     JSONVar Alive;
     Alive["type"] = 5;
@@ -148,38 +165,37 @@ void storeLocalSensorData() {
 
   // Checken hoe groot de huidige array is
   // alternatief: aantal_logs = _countof(localData);
-  size_t aantal_logs = sizeof(localData) / sizeof(localData[0]);
-  if (aantal_logs >= 10) {
-    for (int i = aantal_logs - 1; i < 0; i--) {
-      localData[i] = localData[i+1];
+  if (aantal_logs_local >= 9) {
+    for (int log_index = aantal_logs_local - 1; log_index < 0; log_index--) {
+      localData[log_index] = localData[log_index+1];
     }
     localData[0].temp = messageObject["temp"];
     localData[0].hum = messageObject["hum"];
     localData[0].logged_at = messageObject["logged_at"];
   }
   else {
-    localData[aantal_logs + 1].temp = messageObject["temp"];
-    localData[aantal_logs + 1].hum = messageObject["hum"];
-    localData[aantal_logs + 1].logged_at = messageObject["logged_at"];
+    localData[9 - aantal_logs_local].temp = messageObject["temp"];
+    localData[9 - aantal_logs_local].hum = messageObject["hum"];
+    localData[9 - aantal_logs_local].logged_at = messageObject["logged_at"];
+    aantal_logs_local += 1;
   }
 }
 
 void checkStatus() {
-  int aantal_logs = sizeof(localData) / sizeof(LocalLog);
   int temp_sum = 0;
   int hum_sum = 0;
-  for (int i = 1; i < aantal_logs; i++) {
+  for (int log_index = 1; log_index < aantal_logs_local; log_index++) {
     temp_sum += localData[i].temp;
   }
-  for (int i = 1; i < aantal_logs; i++) {
-    hum_sum += localData[i].hum;
+  for (int log_index = 1; log_index < aantal_logs_local; log_index++) {
+    hum_sum += localData[log_index].hum;
   }
-  int average_hum = hum_sum / (aantal_logs - 1);
+  int average_hum = hum_sum / (aantal_logs_local - 1);
   int current_hum = localData[0].hum;
-  int average_temp = temp_sum / (aantal_logs - 1);
+  int average_temp = temp_sum / (aantal_logs_local - 1);
   int current_temp = localData[0].temp;
   if (((current_temp / average_temp) < 0.9) && ((current_hum / average_hum) < 0.8)) {
-    //Alert
+    //Alert toevoegen!!!
   }
 }
 
@@ -203,7 +219,6 @@ void receivedCallback( uint32_t from, String &msg ) {
   Serial.printf("Received from %u msg=%s\n", from, msg.c_str());
   JSONVar messageObject = JSON.parse(msg.c_str());
   int type = messageObject["type"];
-
   // MESSAGE TYPES
   // 1 = Synchroniseer logs realtime (10 seconden)
   // 2 = Delete logs op alle nodes 
@@ -218,22 +233,22 @@ void receivedCallback( uint32_t from, String &msg ) {
     double pres = messageObject["pres"];
     time_t logged_at = messageObject["logged_at"];
 
-    size_t currentNumberOfLogs = sizeof(logs)/sizeof(logs[0]);
-    logs[currentNumberOfLogs + 1].node = node;
-    logs[currentNumberOfLogs + 1].temp = temp;
-    logs[currentNumberOfLogs + 1].hum = hum;
-    logs[currentNumberOfLogs + 1].pres = pres;
-    logs[currentNumberOfLogs + 1].logged_at = logged_at;
+    logs[aantal_logs + 1].node = node;
+    logs[aantal_logs + 1].temp = temp;
+    logs[aantal_logs + 1].hum = hum;
+    logs[aantal_logs + 1].pres = pres;
+    logs[aantal_logs + 1].logged_at = logged_at;
+    aantal_logs += 1;
 
   } else if (type == 2) {
     // FLUSH LOGS
     free(logs);
-  } else if ((type == 3)) {//&& (master == 1)) {
+  } else if ((type == 3) && (master == 1)) {
     int nodeid = messageObject["nodeid"];
     sendReply4(nodeid);
     Serial.printf("Message 4 verzonden \n");
   } else if (type == 4) {
-    // **WERKT NOG NIET** ontvangt de volledige logs van de masternode
+    // **WERKT MISSCHIEN?** ontvangt de volledige logs van de masternode
     int nodeid = messageObject["nodeid"];
     if (nodeid == nodeNumber) {
       int node = messageObject["node"];
@@ -242,23 +257,15 @@ void receivedCallback( uint32_t from, String &msg ) {
       double pres = messageObject["pres"];
       time_t logged_at = messageObject["logged_at"];
 
-      size_t currentNumberOfLogs = sizeof(logs)/sizeof(logs[0]);
-      logs[currentNumberOfLogs + 1].node = node;
-      logs[currentNumberOfLogs + 1].temp = temp;
-      logs[currentNumberOfLogs + 1].hum = hum;
-      logs[currentNumberOfLogs + 1].pres = pres;
-      logs[currentNumberOfLogs + 1].logged_at = logged_at;
+      logs[aantal_logs + 1].node = node;
+      logs[aantal_logs + 1].temp = temp;
+      logs[aantal_logs + 1].hum = hum;
+      logs[aantal_logs + 1].pres = pres;
+      logs[aantal_logs + 1].logged_at = logged_at;
+      aantal_logs += 1;
     }
     Serial.printf("Message type 4 werkt. \n");
-}
-    
-    // cJSON *rootObject = CJSON_Parse(messageObject);
-
-    // Log logs = messageObject["logs"];
-    // if (nodeid == nodeNumber) {
-    //   logs = logs;
-    // }
-  
+  }
 }
 
 int getRandomOnlineNode() {
