@@ -7,6 +7,15 @@
 #include "cJSON.h"
 #include <time.h>
 
+// TODO:
+// Wifi AP toevoegen aan script
+// Selectie backup master node
+// Fixen bug met uitlezen JSON data (recieve4)
+// POST-request naar Rasperry Pi
+//   - Alert
+//   - Alle logs
+// Deep Sleep functie toevoegen
+
 // MESH Details
 #define   MESH_PREFIX     "ESP_NET_WERK_MESH" // Naam van mesh
 #define   MESH_PASSWORD   "OmdatHetNetWerkt" // Wachtwoord van mesh
