@@ -8,6 +8,29 @@
 #include <time.h>
 #include <esp_wifi.h>
 #include <WiFi.h>
+#include <stdio.h>
+#include <curl/curl.h>
+#include <string.h>
+
+int makeCallToRasperry(void) {
+  CURL *curl;
+  CURLcode res;
+
+  curl = curl_easy_init();
+  if (curl) {
+    curl_easy_setopt(curl, CURLOPT_URL, "http://192.168.4.24:1880");
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "name=value");
+    res = curl_easy_perform(curl);
+
+    if (res != CURLE_OK) {
+      fprintf(stderr, "curl_easy_perform() failed: %s\n",
+              curl_easy_strerror(res));
+    }
+    curl_easy_cleanup(curl);
+  }
+
+  return (int)res;
+}
 
 // NODE CONFIG
 int AP_NODE = 5;
@@ -80,6 +103,8 @@ Task sendAliveTask(TASK_SECOND * 5, TASK_FOREVER, &sendAlive);
 
 //Create task: to send send a message to receive all logs from the masternode
 Task sendMessage3Task(TASK_SECOND * 20, 2, &sendMessage3);
+
+Task syncLogsWithRasperry(TASK_SECOND * 10, TASK_FOREVER, &sendLogsToServer);
 
 /*
 * STRUCTURES
@@ -339,9 +364,10 @@ void onDroppedConnection(unsigned int nodeId) {
 }
 
 void sendLogsToServer() {
-  if (nodeNumber == 1) {
+  if (nodeNumber == MASTER_NODE) {
     // Loop trough every item in array
       // Inside for loop: make POST request to raspberry pi with every log entry
+      makeCallToRasperry();
       // Remove log out of logs
       sendEmptyLogsMessage();
   }
@@ -395,10 +421,13 @@ void setup() {
   
   userScheduler.addTask(sendAliveTask);
 
+  userScheduler.addTask(syncLogsWithRasperry);
+
   taskSendMessage.enable();
   storeLocalSensorReadings.enable();
   checkStatusTask.enable();
   sendAliveTask.enable();
+  syncLogsWithRasperry.enable();
 
   if (nodeNumber == AP_NODE) {
     Serial.print("Setting soft-AP configuration ... ");
@@ -411,7 +440,7 @@ void setup() {
     Serial.println(WiFi.softAPIP());
   } else if (nodeNumber == MASTER_NODE) {
     // Master node connect met 
-    WiFi.mode(WIFI_STA); //Optional
+    WiFi.mode(WIFI_AP_STA); //Optional
     WiFi.begin(ssid, passphrase);
   }
 }
