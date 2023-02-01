@@ -9,28 +9,10 @@
 #include <esp_wifi.h>
 #include <WiFi.h>
 #include <stdio.h>
-#include <curl/curl.h>
 #include <string.h>
+#include <HTTPClient.h>
 
-int makeCallToRasperry(void) {
-  CURL *curl;
-  CURLcode res;
-
-  curl = curl_easy_init();
-  if (curl) {
-    curl_easy_setopt(curl, CURLOPT_URL, "http://192.168.4.24:1880");
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "name=value");
-    res = curl_easy_perform(curl);
-
-    if (res != CURLE_OK) {
-      fprintf(stderr, "curl_easy_perform() failed: %s\n",
-              curl_easy_strerror(res));
-    }
-    curl_easy_cleanup(curl);
-  }
-
-  return (int)res;
-}
+String serverName = "http://192.168.4.22:1880/update-sensor";
 
 // NODE CONFIG
 int AP_NODE = 5;
@@ -83,6 +65,7 @@ void checkStatus();
 void sendAlive();
 void sendMessage3();
 void sendReply4(int nodeid);
+void sendLogsToServer();
 String getReadings();
 
 /*
@@ -365,11 +348,36 @@ void onDroppedConnection(unsigned int nodeId) {
 
 void sendLogsToServer() {
   if (nodeNumber == MASTER_NODE) {
-    // Loop trough every item in array
-      // Inside for loop: make POST request to raspberry pi with every log entry
-      makeCallToRasperry();
-      // Remove log out of logs
-      sendEmptyLogsMessage();
+    // // Loop trough every item in array
+    // // Inside for loop: make POST request to raspberry pi with every log entry
+    // // Remove log out of logs
+    // WiFiClient client;
+    // HTTPClient http;
+  
+    // // Your Domain name with URL path or IP address with path
+    // http.begin(client, serverName);
+    // // Specify content-type header
+    // http.addHeader("Content-Type", "application/json");
+    // // Data to send with HTTP POST
+    // String httpRequestData = "api_key=tPmAT5Ab3j7F9&sensor=BME280&value1=24.25&value2=49.54&value3=1005.14";           
+    // // Send HTTP POST request
+    // int httpResponseCode = http.POST(httpRequestData);
+    
+    // // If you need an HTTP request with a content type: application/json, use the following:
+    // //http.addHeader("Content-Type", "application/json");
+    // //int httpResponseCode = http.POST("{\"api_key\":\"tPmAT5Ab3j7F9\",\"sensor\":\"BME280\",\"value1\":\"24.25\",\"value2\":\"49.54\",\"value3\":\"1005.14\"}");
+
+    // // If you need an HTTP request with a content type: text/plain
+    // //http.addHeader("Content-Type", "text/plain");
+    // //int httpResponseCode = http.POST("Hello, World!");
+    
+    // Serial.print("HTTP Response code: ");
+    // Serial.println(httpResponseCode);
+      
+    // // Free resources
+    // http.end();
+
+    // sendEmptyLogsMessage();
   }
 }
 
