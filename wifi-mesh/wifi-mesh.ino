@@ -356,23 +356,23 @@ void sendLogsToServer() {
   
     // // Your Domain name with URL path or IP address with path
     Serial.printf("voor http begin");
-    http.begin("http://192.168.4.24:1880/sync");
+    http.begin(client, "http://192.168.4.24:1880/sync");
     Serial.printf("na http.begin");
     // // Specify content-type header
-    http.addHeader("Content-Type", "text/plain");
+    http.addHeader("Content-Type", "application/json");
     // // Data to send with HTTP POST
-    String httpRequestData = "Hallo!!";
-    //String httpRequestData = "api_key=tPmAT5Ab3j7F9&sensor=BME280&value1=24.25&value2=49.54&value3=1005.14";           
+    //String httpRequestData = "Hallo!!";
+    //String httpRequestData = "$api_key=tPmAT5Ab3j7F9&sensor=BME280&value1=24.25&value2=49.54&value3=1005.14";           
     // // Send HTTP POST request
-    int httpResponseCode = http.POST("Dit is een test");
+    //int httpResponseCode = http.POST(httpRequestData);
     
     // // If you need an HTTP request with a content type: application/json, use the following:
     // //http.addHeader("Content-Type", "application/json");
-    // //int httpResponseCode = http.POST("{\"api_key\":\"tPmAT5Ab3j7F9\",\"sensor\":\"BME280\",\"value1\":\"24.25\",\"value2\":\"49.54\",\"value3\":\"1005.14\"}");
+    //int httpResponseCode = http.POST("{\"api_key\":\"tPmAT5Ab3j7F9\",\"sensor\":\"BME280\",\"value1\":\"24.25\",\"value2\":\"49.54\",\"value3\":\"1005.14\"}");
 
     // // If you need an HTTP request with a content type: text/plain
-    // //http.addHeader("Content-Type", "text/plain");
-    // //int httpResponseCode = http.POST("Hello, World!");
+    //http.addHeader("Content-Type", "text/plain");
+    //int httpResponseCode = http.POST("Hello, World!");
     
     Serial.print("HTTP Response code: ");
     Serial.println(httpResponseCode);
