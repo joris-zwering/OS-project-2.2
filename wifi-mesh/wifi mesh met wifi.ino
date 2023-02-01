@@ -6,17 +6,26 @@
 #include "freertos/queue.h"
 #include "cJSON.h"
 #include <time.h>
+#include <WiFi.h>
+#include <esp_wifi.h>
+
+const char *ssid = "Config_Node_NetWerk";
+const char *passphrase = "987654321";
 
 // MESH Details
 #define   MESH_PREFIX     "ESP_NET_WERK_MESH" // Naam van mesh
 #define   MESH_PASSWORD   "OmdatHetNetWerkt" // Wachtwoord van mesh
 #define   MESH_PORT       5555  
 
+IPAddress local_IP(192,168,4,22);
+IPAddress gateway(192,168,4,9);
+IPAddress subnet(255,255,255,0);
+
 //BME object on the default I2C pins
 Adafruit_BME280 bme;
 
 // Identifier voor deze node
-int nodeNumber = 2;
+int nodeNumber = 3;
 
 // Online nodes
 int onlineNodes[] = {};
@@ -217,11 +226,11 @@ void receivedCallback( uint32_t from, String &msg ) {
     sendReply4(nodeid);
   } else if (type == 4) {
     // **WERKT NOG NIET** ontvangt de volledige logs van de masternode
-    int nodeid = messageObject["nodeid"];
-    struct newlogs = messageObject["logs"];
-    if (nodeid == nodeNumber) {
-      logs = newlogs;
-    }
+    // int nodeid = messageObject["nodeid"];
+    // struct newlogs = messageObject["logs"];
+    // if (nodeid == nodeNumber) {
+    //   logs = newlogs;
+    // }
   }
 }
 
@@ -335,8 +344,18 @@ void setup() {
   storeLocalSensorReadings.enable();
   checkStatusTask.enable();
   sendAliveTask.enable();
+
+  Serial.print("Setting soft-AP configuration ... ");
+  Serial.println(WiFi.softAPConfig(local_IP, gateway, subnet) ? "Ready" : "Failed!");
+
+  Serial.print("Setting soft-AP ... ");
+  Serial.println(WiFi.softAP(ssid, passphrase) ? "Ready" : "Failed!");
+
+  Serial.print("Soft-AP IP address = ");
+  Serial.println(WiFi.softAPIP());
 }
 
 void loop() {
   mesh.update();
+
 }
