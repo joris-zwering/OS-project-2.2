@@ -6,6 +6,16 @@
 #include "freertos/queue.h"
 #include "cJSON.h"
 #include <time.h>
+#include <esp_wifi.h>
+#include <WiFi.h>
+
+// NODE CONFIG
+int AP_NODE = 5;
+int MASTER_NODE = 2;
+
+IPAddress local_IP(192,168,4,22);
+IPAddress gateway(192,168,4,9);
+IPAddress subnet(255,255,255,0);
 
 // TODO:
 // Wifi AP toevoegen aan script
@@ -21,14 +31,14 @@
 #define   MESH_PASSWORD   "OmdatHetNetWerkt" // Wachtwoord van mesh
 #define   MESH_PORT       5555  
 
+const char *ssid = "Config_Node_NetWerk";
+const char *passphrase = "987654321";
+
 // Identifier voor deze node
-int nodeNumber = 2;
+int nodeNumber = 4;
 
 // Online nodes
 int onlineNodes[] = {};
-
-// Mastermode
-int master = 0;
 
 // Counters voor aantal logs
 int aantal_logs = 0;
@@ -143,11 +153,11 @@ void sendSensorData () {
   JSONVar messageObject = JSON.parse(msg.c_str());
   
   // Sla sensorwaarden op in logs
-  logs[aantal_logs + 1].node = messageObject["node"];
-  logs[aantal_logs + 1].temp = messageObject["temp"];
-  logs[aantal_logs + 1].hum = messageObject["hum"];
-  logs[aantal_logs + 1].pres = messageObject["pres"];
-  logs[aantal_logs + 1].logged_at = messageObject["logged_at"];
+  logs[aantal_logs].node = messageObject["node"];
+  logs[aantal_logs].temp = messageObject["temp"];
+  logs[aantal_logs].hum = messageObject["hum"];
+  logs[aantal_logs].pres = messageObject["pres"];
+  logs[aantal_logs].logged_at = messageObject["logged_at"];
   // Serial.printf("%d\n", aantal_logs);
   // Serial.printf("%d\n", logs[1].node);
   // Serial.printf("%lf\n", logs[1].temp);
@@ -160,7 +170,7 @@ void sendSensorData () {
 }
 
 void sendAlive() {
-  if (master == 1) {
+  if (MASTER_NODE == nodeNumber) {
     JSONVar Alive;
     Alive["type"] = 5;
     mesh.sendBroadcast(JSON.stringify(Alive));
@@ -194,7 +204,7 @@ void checkStatus() {
   int temp_sum = 0;
   int hum_sum = 0;
   for (int log_index = 1; log_index < aantal_logs_local; log_index++) {
-    temp_sum += localData[i].temp;
+    temp_sum += localData[log_index].temp;
   }
   for (int log_index = 1; log_index < aantal_logs_local; log_index++) {
     hum_sum += localData[log_index].hum;
@@ -242,17 +252,17 @@ void receivedCallback( uint32_t from, String &msg ) {
     double pres = messageObject["pres"];
     time_t logged_at = messageObject["logged_at"];
 
-    logs[aantal_logs + 1].node = node;
-    logs[aantal_logs + 1].temp = temp;
-    logs[aantal_logs + 1].hum = hum;
-    logs[aantal_logs + 1].pres = pres;
-    logs[aantal_logs + 1].logged_at = logged_at;
+    logs[aantal_logs].node = node;
+    logs[aantal_logs].temp = temp;
+    logs[aantal_logs].hum = hum;
+    logs[aantal_logs].pres = pres;
+    logs[aantal_logs].logged_at = logged_at;
     aantal_logs += 1;
 
   } else if (type == 2) {
     // FLUSH LOGS
     free(logs);
-  } else if ((type == 3) && (master == 1)) {
+  } else if ((type == 3) && (MASTER_NODE == nodeNumber)) {
     int nodeid = messageObject["nodeid"];
     sendReply4(nodeid);
     Serial.printf("Message 4 verzonden \n");
@@ -266,14 +276,13 @@ void receivedCallback( uint32_t from, String &msg ) {
       double pres = messageObject["pres"];
       time_t logged_at = messageObject["logged_at"];
 
-      logs[aantal_logs + 1].node = node;
-      logs[aantal_logs + 1].temp = temp;
-      logs[aantal_logs + 1].hum = hum;
-      logs[aantal_logs + 1].pres = pres;
-      logs[aantal_logs + 1].logged_at = logged_at;
+      logs[aantal_logs].node = node;
+      logs[aantal_logs].temp = temp;
+      logs[aantal_logs].hum = hum;
+      logs[aantal_logs].pres = pres;
+      logs[aantal_logs].logged_at = logged_at;
       aantal_logs += 1;
     }
-    Serial.printf("Message type 4 werkt. \n");
   }
 }
 
@@ -367,7 +376,7 @@ void setup() {
 
   // Stuur bij opstarten een type 3 message om alle logs van masternode te krijgen
   userScheduler.addTask(sendMessage3Task);
-  //sendMessage3Task.enable();
+  sendMessage3Task.enable();
 
   // Serial.printf("Message type 3 werkt. \n");
   // for (int x = 0; x < 10; x++) {
@@ -391,6 +400,20 @@ void setup() {
   checkStatusTask.enable();
   sendAliveTask.enable();
 
+  if (nodeNumber == AP_NODE) {
+    Serial.print("Setting soft-AP configuration ... ");
+    Serial.println(WiFi.softAPConfig(local_IP, gateway, subnet) ? "Ready" : "Failed!");
+
+    Serial.print("Setting soft-AP ... ");
+    Serial.println(WiFi.softAP(ssid, passphrase) ? "Ready" : "Failed!");
+
+    Serial.print("Soft-AP IP address = ");
+    Serial.println(WiFi.softAPIP());
+  } else if (nodeNumber == MASTER_NODE) {
+    // Master node connect met 
+    WiFi.mode(WIFI_STA); //Optional
+    WiFi.begin(ssid, passphrase);
+  }
 }
 
 void loop() {
