@@ -16,7 +16,7 @@ String serverName = "http://192.168.4.22:1880/update-sensor";
 
 // NODE CONFIG
 int AP_NODE = 5;
-int MASTER_NODE = 2;
+int MASTER_NODE = 1;
 
 IPAddress local_IP(192,168,4,22);
 IPAddress gateway(192,168,4,9);
@@ -40,7 +40,7 @@ const char *ssid = "Config_Node_NetWerk";
 const char *passphrase = "987654321";
 
 // Identifier voor deze node
-int nodeNumber = 4;
+int nodeNumber = 1;
 
 // Online nodes
 int onlineNodes[] = {};
@@ -351,17 +351,20 @@ void sendLogsToServer() {
     // // Loop trough every item in array
     // // Inside for loop: make POST request to raspberry pi with every log entry
     // // Remove log out of logs
-    // WiFiClient client;
-    // HTTPClient http;
+    WiFiClient client;
+    HTTPClient http;
   
     // // Your Domain name with URL path or IP address with path
-    // http.begin(client, serverName);
+    Serial.printf("voor http begin");
+    http.begin("http://192.168.4.24:1880/sync");
+    Serial.printf("na http.begin");
     // // Specify content-type header
-    // http.addHeader("Content-Type", "application/json");
+    http.addHeader("Content-Type", "text/plain");
     // // Data to send with HTTP POST
-    // String httpRequestData = "api_key=tPmAT5Ab3j7F9&sensor=BME280&value1=24.25&value2=49.54&value3=1005.14";           
+    String httpRequestData = "Hallo!!";
+    //String httpRequestData = "api_key=tPmAT5Ab3j7F9&sensor=BME280&value1=24.25&value2=49.54&value3=1005.14";           
     // // Send HTTP POST request
-    // int httpResponseCode = http.POST(httpRequestData);
+    int httpResponseCode = http.POST("Dit is een test");
     
     // // If you need an HTTP request with a content type: application/json, use the following:
     // //http.addHeader("Content-Type", "application/json");
@@ -371,11 +374,11 @@ void sendLogsToServer() {
     // //http.addHeader("Content-Type", "text/plain");
     // //int httpResponseCode = http.POST("Hello, World!");
     
-    // Serial.print("HTTP Response code: ");
-    // Serial.println(httpResponseCode);
+    Serial.print("HTTP Response code: ");
+    Serial.println(httpResponseCode);
       
     // // Free resources
-    // http.end();
+    http.end();
 
     // sendEmptyLogsMessage();
   }
