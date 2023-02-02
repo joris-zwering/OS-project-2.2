@@ -42,6 +42,10 @@
       become: true
       command: docker run -it -d -p 1880:1880 --name mynodered nodered/node-red
 
+    - name: Run mysql in Docker
+      become: true
+      command: docker run --name mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=Ubuntu -d mysql
+
     - name: add node-red-node-mysql to node-red
       community.docker.docker_container_exec: 
         container: mynodered
@@ -54,3 +58,4 @@
         image: nodered/node-red
         state: started
         restart: yes
+
