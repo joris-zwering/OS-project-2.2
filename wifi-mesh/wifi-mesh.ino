@@ -40,10 +40,10 @@ const char *ssid = "Config_Node_NetWerk";
 const char *passphrase = "987654321";
 
 // Countdown tot nieuwe masternode gekozen wordt
-int Master_countdown = 20
+int Master_countdown = 20;
 
 // Identifier voor deze node
-int nodeNumber = 1;
+int nodeNumber = 2;
 
 // Online nodes
 int onlineNodes[] = {};
