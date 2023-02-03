@@ -53,6 +53,7 @@ int aantal_logs_local = 0;
 Adafruit_BME280 bme;
 // String to send to other nodes with sensor readings
 String readings;
+String send_logs;
 
 Scheduler userScheduler; 
 painlessMesh  mesh;
@@ -270,6 +271,7 @@ void receivedCallback( uint32_t from, String &msg ) {
   } else if (type == 2) {
     // FLUSH LOGS
     free(logs);
+    struct Log *logs = (struct Log *) malloc(sizeof(struct Log) * 500);
   } else if ((type == 3) && (MASTER_NODE == nodeNumber)) {
     int nodeid = messageObject["nodeid"];
     sendReply4(nodeid);
@@ -348,41 +350,35 @@ void onDroppedConnection(unsigned int nodeId) {
 
 void sendLogsToServer() {
   if (nodeNumber == MASTER_NODE) {
-    // // Loop trough every item in array
-    // // Inside for loop: make POST request to raspberry pi with every log entry
-    // // Remove log out of logs
+    JSONVar sendLogs;
+    for (int index_log = 0; index_log < aantal_logs; index_log++) {
+      //JSONVar sendLogs;
+      sendLogs[index_log]["nodeId"] = logs[index_log].node;
+      sendLogs[index_log]["humidity"] = logs[index_log].hum;
+      sendLogs[index_log]["pressure"] = logs[index_log].pres;
+      sendLogs[index_log]["temperature"] = logs[index_log].temp;
+      //Serial.printf("%d\n", index_log);
+    }
     WiFiClient client;
     HTTPClient http;
-  
-    // // Your Domain name with URL path or IP address with path
-    Serial.printf("voor http begin");
-    http.begin(client, "http://192.168.4.24:1880/sync");
-    Serial.printf("na http.begin");
-    // // Specify content-type header
+    send_logs = JSON.stringify(sendLogs);
+    //Serial.printf(send_logs);
+    http.begin(client, "http://192.168.4.23:1880/sync");
     http.addHeader("Content-Type", "application/json");
-    // // Data to send with HTTP POST
-    //String httpRequestData = "Hallo!!";
-    //String httpRequestData = "$api_key=tPmAT5Ab3j7F9&sensor=BME280&value1=24.25&value2=49.54&value3=1005.14";           
-    // // Send HTTP POST request
-    //int httpResponseCode = http.POST(httpRequestData);
-    
-    // // If you need an HTTP request with a content type: application/json, use the following:
-    // //http.addHeader("Content-Type", "application/json");
-    //int httpResponseCode = http.POST("{\"api_key\":\"tPmAT5Ab3j7F9\",\"sensor\":\"BME280\",\"value1\":\"24.25\",\"value2\":\"49.54\",\"value3\":\"1005.14\"}");
-
-    // // If you need an HTTP request with a content type: text/plain
-    //http.addHeader("Content-Type", "text/plain");
-    //int httpResponseCode = http.POST("Hello, World!");
-    
+    int httpResponseCode = http.POST(send_logs);
+    //"{\"api_key\":\"tPmAT5Ab3j7F9\",\"sensor\":\"BME280\",\"value1\":\"24.25\",\"value2\":\"49.54\",\"value3\":\"1005.14\"}"
     Serial.print("HTTP Response code: ");
     Serial.println(httpResponseCode);
-      
-    // // Free resources
+    // End connection
     http.end();
-
-    // sendEmptyLogsMessage();
+    if (httpResponseCode != -1) {
+      sendEmptyLogsMessage();
+      free(logs);
+      struct Log *logs = (struct Log *) malloc(sizeof(struct Log) * 500);
+    }
   }
-}
+  }
+
 
 void nodeTimeAdjustedCallback(int32_t offset) {
   Serial.printf("Adjusted time %u. Offset = %d\n", mesh.getNodeTime(),offset);
