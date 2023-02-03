@@ -14,6 +14,10 @@
 
 String serverName = "http://192.168.4.22:1880/update-sensor";
 
+// Masternode kiezen door eerst een type 6 te versturen, deze type 6 vraagt van alle esp32's de nodenummers. daaruit kiest de AP een nieuwe masternode.
+// Op het moment blijft de AP type 6 berichten sturen. reden onbekend.
+
+
 // NODE CONFIG
 int AP_NODE = 5;
 int MASTER_NODE = 1;
@@ -243,7 +247,7 @@ void sendEmptyLogsMessage() {
 void Mastercount() {
   if (nodeNumber == AP_NODE) {
     int newNode;
-    if (Master_countdown != 0) {
+    if (Master_countdown > 0) {
       Master_countdown = Master_countdown - 5;
     }
     else {
