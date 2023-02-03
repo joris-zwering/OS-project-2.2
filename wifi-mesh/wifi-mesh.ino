@@ -301,8 +301,8 @@ void receivedCallback( uint32_t from, String &msg ) {
 
   } else if (type == 2) {
     // FLUSH LOGS
-    free(logs);
-    struct Log *logs = (struct Log *) malloc(sizeof(struct Log) * 500);
+    memset(logs, 0, 500 * sizeof(logs));
+    aantal_logs = 0;
   } else if ((type == 3) && (MASTER_NODE == nodeNumber)) {
     int nodeid = messageObject["nodeid"];
     sendReply4(nodeid);
@@ -411,8 +411,8 @@ void sendLogsToServer() {
     http.end();
     if (httpResponseCode != -1) {
       sendEmptyLogsMessage();
-      free(logs);
-      struct Log *logs = (struct Log *) malloc(sizeof(struct Log) * 500);
+      memset(logs, 0, 500 * sizeof(logs));
+      aantal_logs = 0;
     }
   }
   }
