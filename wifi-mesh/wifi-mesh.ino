@@ -39,6 +39,9 @@ IPAddress subnet(255,255,255,0);
 const char *ssid = "Config_Node_NetWerk";
 const char *passphrase = "987654321";
 
+// Countdown tot nieuwe masternode gekozen wordt
+int Master_countdown = 20
+
 // Identifier voor deze node
 int nodeNumber = 1;
 
@@ -68,6 +71,7 @@ void sendMessage3();
 void sendReply4(int nodeid);
 void sendLogsToServer();
 String getReadings();
+void Mastercount();
 
 /*
 * TASKS
@@ -89,6 +93,9 @@ Task sendAliveTask(TASK_SECOND * 5, TASK_FOREVER, &sendAlive);
 Task sendMessage3Task(TASK_SECOND * 20, 2, &sendMessage3);
 
 Task syncLogsWithRasperry(TASK_SECOND * 10, TASK_FOREVER, &sendLogsToServer);
+
+//Create task: to count down from 30s since the last type 5 message
+Task MastercountTask(TASK_SECOND * 5, TASK_FOREVER, &Mastercount);
 
 /*
 * STRUCTURES
@@ -233,6 +240,30 @@ void sendEmptyLogsMessage() {
   mesh.sendBroadcast(JSON.stringify(message));
 }
 
+void Mastercount() {
+  if (nodeNumber == AP_NODE) {
+    int newNode;
+    if (Master_countdown != 0) {
+      Master_countdown = Master_countdown - 5;
+    }
+    else {
+      int newindex = 1;
+      newNode = onlineNodes[0];
+      while (newNode == nodeNumber) {
+        newNode = onlineNodes[newindex];
+        newindex += 1;
+      }
+
+      MASTER_NODE = newNode;
+
+      JSONVar NewMaster;
+      NewMaster["type"] = 6;
+      NewMaster["Masterid"] = newNode;
+      
+      mesh.sendBroadcast(JSON.stringify(NewMaster));
+    }
+  }
+}
 
 // Initialiseren van sensor
 void initBME(){
@@ -293,6 +324,13 @@ void receivedCallback( uint32_t from, String &msg ) {
       logs[aantal_logs].logged_at = logged_at;
       aantal_logs += 1;
     }
+  } else if ((type == 5) && (AP_NODE == nodeNumber)) {
+    // als de master nog leeft zet de timer weer terug op 30 seconde
+    Master_countdown = 20;
+
+  } else if (type == 6) {
+    int masternode = messageObject["Masterid"];
+    MASTER_NODE = masternode;
   }
 }
 
@@ -430,11 +468,14 @@ void setup() {
 
   userScheduler.addTask(syncLogsWithRasperry);
 
+  userScheduler.addTask(MastercountTask);
+
   taskSendMessage.enable();
   storeLocalSensorReadings.enable();
   checkStatusTask.enable();
   sendAliveTask.enable();
   syncLogsWithRasperry.enable();
+  MastercountTask.enable();
 
   if (nodeNumber == AP_NODE) {
     Serial.print("Setting soft-AP configuration ... ");
