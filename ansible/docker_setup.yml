@@ -1,0 +1,55 @@
+---
+- hosts: raspberrypi1
+  become: true
+  collections:
+   - community.general
+   - community.docker
+  tasks:
+
+    - name: update system
+      apt:
+          update_cache: true
+
+    - name: upgrade os
+      ansible.builtin.apt:
+        upgrade: dist
+
+    - name: installing docker package
+      apt:
+       pkg:
+         - apt-transport-https
+         - ca-certificates
+         - curl
+         - software-properties-common
+         - python3-pip
+         - virtualenv
+         - python3-setuptools
+         - gnupg-agent
+         - software-properties-common
+         - nodejs
+         - npm
+       state: latest
+
+    - name: Add docker gpg apt key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add docker repository
+      apt_repository:
+        repo: deb [arch=arm64] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename  }} stable
+        state: present
+
+    - name: Update cache again
+      apt:
+        update_cache: true
+
+    - name: Install docker
+      apt:
+        name: docker-ce
+        state: present
+        update_cache: true
+
+    - name: Install docker for pip
+      ansible.builtin.pip:
+        name: docker
