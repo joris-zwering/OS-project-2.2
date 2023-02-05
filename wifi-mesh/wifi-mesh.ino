@@ -12,11 +12,8 @@
 #include <string.h>
 #include <HTTPClient.h>
 
-String serverName = "http://192.168.4.22:1880/update-sensor";
-
 // Masternode kiezen door eerst een type 6 te versturen, deze type 6 vraagt van alle esp32's de nodenummers. daaruit kiest de AP een nieuwe masternode.
 // Op het moment blijft de AP type 6 berichten sturen. reden onbekend.
-
 
 // NODE CONFIG
 int AP_NODE = 5;
@@ -27,13 +24,13 @@ IPAddress gateway(192,168,4,9);
 IPAddress subnet(255,255,255,0);
 
 // TODO:
-// Wifi AP toevoegen aan script
+// Wifi AP toevoegen aan script ***DONE***
 // Selectie backup master node
-// Fixen bug met uitlezen JSON data (recieve4)
-// POST-request naar Rasperry Pi
+// Fixen bug met uitlezen JSON data (recieve4) ***DONE***
+// POST-request naar Rasperry Pi 
 //   - Alert
-//   - Alle logs
-// Deep Sleep functie toevoegen
+//   - Alle logs  ***DONE***
+// Deep Sleep functie toevoegen ***WORDT NIET GEDAAN***
 
 // MESH Details
 #define   MESH_PREFIX     "ESP_NET_WERK_MESH" // Naam van mesh
@@ -44,10 +41,10 @@ const char *ssid = "Config_Node_NetWerk";
 const char *passphrase = "987654321";
 
 // Countdown tot nieuwe masternode gekozen wordt
-int Master_countdown = 20;
+//int Master_countdown = 20;
 
 // Identifier voor deze node
-int nodeNumber = 2;
+int nodeNumber = 1;
 
 // Online nodes
 int onlineNodes[] = {};
@@ -75,7 +72,7 @@ void sendMessage3();
 void sendReply4(int nodeid);
 void sendLogsToServer();
 String getReadings();
-void Mastercount();
+//void Mastercount();
 
 /*
 * TASKS
@@ -96,10 +93,10 @@ Task sendAliveTask(TASK_SECOND * 5, TASK_FOREVER, &sendAlive);
 //Create task: to send send a message to receive all logs from the masternode
 Task sendMessage3Task(TASK_SECOND * 20, 2, &sendMessage3);
 
-Task syncLogsWithRasperry(TASK_SECOND * 10, TASK_FOREVER, &sendLogsToServer);
+Task syncLogsWithRasperry(TASK_SECOND * 20, TASK_FOREVER, &sendLogsToServer);
 
 //Create task: to count down from 30s since the last type 5 message
-Task MastercountTask(TASK_SECOND * 5, TASK_FOREVER, &Mastercount);
+//Task MastercountTask(TASK_SECOND * 5, TASK_FOREVER, &Mastercount);
 
 /*
 * STRUCTURES
@@ -221,20 +218,31 @@ void storeLocalSensorData() {
 }
 
 void checkStatus() {
-  int temp_sum = 0;
-  int hum_sum = 0;
-  for (int log_index = 1; log_index < aantal_logs_local; log_index++) {
-    temp_sum += localData[log_index].temp;
-  }
-  for (int log_index = 1; log_index < aantal_logs_local; log_index++) {
-    hum_sum += localData[log_index].hum;
-  }
-  int average_hum = hum_sum / (aantal_logs_local - 1);
-  int current_hum = localData[0].hum;
-  int average_temp = temp_sum / (aantal_logs_local - 1);
-  int current_temp = localData[0].temp;
-  if (((current_temp / average_temp) < 0.9) && ((current_hum / average_hum) < 0.8)) {
-    //Alert toevoegen!!!
+  if (aantal_logs_local > 1) {
+    int temp_sum = 0;
+    int hum_sum = 0;
+    for (int log_index = 1; log_index < aantal_logs_local; log_index++) {
+      temp_sum += localData[log_index].temp;
+    }
+    for (int log_index = 1; log_index < aantal_logs_local; log_index++) {
+      hum_sum += localData[log_index].hum;
+    }
+    int average_hum = hum_sum / (aantal_logs_local - 1);
+    int current_hum = localData[0].hum;
+    int average_temp = temp_sum / (aantal_logs_local - 1);
+    int current_temp = localData[0].temp;
+    if (((current_temp / average_temp) < 0.9) && ((current_hum / average_hum) < 0.8)) {
+      // JSONVar alert;
+      // alert["type"] = 99;
+      // alert["node"] = nodeNumber;
+      // alert["temp"] = bme.readTemperature();
+      // alert["hum"] = bme.readHumidity();
+      // alert["pres"] = bme.readPressure()/100.0F;
+      // time_t current_time = time(NULL);
+      // alert["logged_at"] = current_time;
+      // mesh.sendBroadcast(JSON.stringify(alert));
+      Serial.printf("ALERT");
+    }
   }
 }
 
@@ -244,30 +252,30 @@ void sendEmptyLogsMessage() {
   mesh.sendBroadcast(JSON.stringify(message));
 }
 
-void Mastercount() {
-  if (nodeNumber == AP_NODE) {
-    int newNode;
-    if (Master_countdown > 0) {
-      Master_countdown = Master_countdown - 5;
-    }
-    else {
-      int newindex = 1;
-      newNode = onlineNodes[0];
-      while (newNode == nodeNumber) {
-        newNode = onlineNodes[newindex];
-        newindex += 1;
-      }
+// void Mastercount() {
+//   if (nodeNumber == AP_NODE) {
+//     int newNode;
+//     if (Master_countdown > 0) {
+//       Master_countdown = Master_countdown - 5;
+//     }
+//     else {
+//       int newindex = 1;
+//       newNode = onlineNodes[0];
+//       while (newNode == nodeNumber) {
+//         newNode = onlineNodes[newindex];
+//         newindex += 1;
+//       }
 
-      MASTER_NODE = newNode;
+//       MASTER_NODE = newNode;
 
-      JSONVar NewMaster;
-      NewMaster["type"] = 6;
-      NewMaster["Masterid"] = newNode;
+//       JSONVar NewMaster;
+//       NewMaster["type"] = 6;
+//       NewMaster["Masterid"] = newNode;
       
-      mesh.sendBroadcast(JSON.stringify(NewMaster));
-    }
-  }
-}
+//       mesh.sendBroadcast(JSON.stringify(NewMaster));
+//     }
+//   }
+// }
 
 // Initialiseren van sensor
 void initBME(){
@@ -312,7 +320,7 @@ void receivedCallback( uint32_t from, String &msg ) {
     sendReply4(nodeid);
     Serial.printf("Message 4 verzonden \n");
   } else if (type == 4) {
-    // **WERKT MISSCHIEN?** ontvangt de volledige logs van de masternode
+    // ontvangt de volledige logs van de masternode
     int nodeid = messageObject["nodeid"];
     if (nodeid == nodeNumber) {
       int node = messageObject["node"];
@@ -330,11 +338,25 @@ void receivedCallback( uint32_t from, String &msg ) {
     }
   } else if ((type == 5) && (AP_NODE == nodeNumber)) {
     // als de master nog leeft zet de timer weer terug op 30 seconde
-    Master_countdown = 20;
+    //Master_countdown = 30;
 
   } else if (type == 6) {
     int masternode = messageObject["Masterid"];
     MASTER_NODE = masternode;
+  } else if ((type == 99) && (MASTER_NODE == nodeNumber)){
+    int node = messageObject["node"];
+    double temp = messageObject["temp"];
+    double hum = messageObject["hum"];
+    double pres = messageObject["pres"];
+    time_t logged_at = messageObject["logged_at"];
+
+    logs[aantal_logs].node = node;
+    logs[aantal_logs].temp = temp;
+    logs[aantal_logs].hum = hum;
+    logs[aantal_logs].pres = pres;
+    logs[aantal_logs].logged_at = logged_at;
+    aantal_logs += 1;
+    sendLogsToServer(); // VERSCHIL CHECKEN TUSSEN /ALERT EN /SYNC
   }
 }
 
@@ -408,7 +430,6 @@ void sendLogsToServer() {
     http.begin(client, "http://192.168.4.23:1880/sync");
     http.addHeader("Content-Type", "application/json");
     int httpResponseCode = http.POST(send_logs);
-    //"{\"api_key\":\"tPmAT5Ab3j7F9\",\"sensor\":\"BME280\",\"value1\":\"24.25\",\"value2\":\"49.54\",\"value3\":\"1005.14\"}"
     Serial.print("HTTP Response code: ");
     Serial.println(httpResponseCode);
     // End connection
@@ -419,7 +440,7 @@ void sendLogsToServer() {
       aantal_logs = 0;
     }
   }
-  }
+}
 
 
 void nodeTimeAdjustedCallback(int32_t offset) {
@@ -472,14 +493,14 @@ void setup() {
 
   userScheduler.addTask(syncLogsWithRasperry);
 
-  userScheduler.addTask(MastercountTask);
+  //userScheduler.addTask(MastercountTask);
 
   taskSendMessage.enable();
   storeLocalSensorReadings.enable();
   checkStatusTask.enable();
   sendAliveTask.enable();
   syncLogsWithRasperry.enable();
-  MastercountTask.enable();
+  //MastercountTask.enable();
 
   if (nodeNumber == AP_NODE) {
     Serial.print("Setting soft-AP configuration ... ");
