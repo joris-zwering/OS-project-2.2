@@ -46,13 +46,13 @@ const char *passphrase = "987654321";
 ESP32Time rtc(3600);
 
 // Countdown tot nieuwe masternode gekozen wordt
-int Master_countdown = 10;
+int Master_countdown = 15;
 
 // Het nodeid voor de nieuwe masternode
 int Onlinenode = NULL;
 
 // Identifier voor deze node
-int nodeNumber = 5;
+int nodeNumber = 1;
 
 // Online nodes
 int onlineNodes[] = {};
@@ -82,7 +82,7 @@ void sendReply4(int nodeid);
 void sendLogsToServer();
 void sendAlertToServer(int node, double hum, double temp, double pres, time_t logged_at);
 String getReadings();
-void Mastercount();
+//void Mastercount();
 
 /*
 * TASKS
@@ -106,7 +106,7 @@ Task sendMessage3Task(TASK_SECOND * 20, 2, &sendMessage3);
 Task syncLogsWithRasperry(TASK_SECOND * 20, TASK_FOREVER, &sendLogsToServer);
 
 //Create task: to count down from 30s since the last type 5 message
-Task MastercountTask(TASK_SECOND * 5, TASK_FOREVER, &Mastercount);
+//Task MastercountTask(TASK_SECOND * 5, TASK_FOREVER, &Mastercount);
 
 /*
 * STRUCTURES
@@ -161,7 +161,7 @@ void sendMessage3 () {
 
 void sendReply4 (int nodeid) {
   // verstuurt het antwoord op een type 3 bericht
-  for (int log_index = 1; log_index <= aantal_logs; log_index++) {
+  for (int log_index = 0; log_index < aantal_logs; log_index++) {
     JSONVar msg4;
     msg4["type"] = 4;
     msg4["nodeid"] = nodeid;
@@ -170,7 +170,7 @@ void sendReply4 (int nodeid) {
     msg4["hum"] = logs[log_index].hum;
     msg4["pres"] = logs[log_index].pres;
     msg4["logged_at"] = logs[log_index].logged_at;
-    msg4["masternode"] = MASTER_NODE;
+    //msg4["masternode"] = MASTER_NODE;
     mesh.sendBroadcast(JSON.stringify(msg4));
   }
 }
@@ -201,6 +201,7 @@ void sendAlive() {
   if (MASTER_NODE == nodeNumber) {
     JSONVar Alive;
     Alive["type"] = 5;
+    Alive["nodeid"] = nodeNumber;
     mesh.sendBroadcast(JSON.stringify(Alive));
   }
 }
@@ -263,24 +264,27 @@ void sendEmptyLogsMessage() {
   mesh.sendBroadcast(JSON.stringify(message));
 }
 
-void Mastercount() {
-  if (nodeNumber == AP_NODE) {
-    if (Onlinenode != NULL) {
-      MASTER_NODE = Onlinenode;
-      Master_countdown = 10;
-      Onlinenode = NULL;
+// void Mastercount() {
+//   if (nodeNumber == AP_NODE) {
+//     if (Onlinenode != NULL) {
+//       MASTER_NODE = Onlinenode;
+//       Master_countdown = 15;
+//       Onlinenode = NULL;
 
-    } else if (Master_countdown > 0) {
-      Master_countdown = Master_countdown - 5;
+//       JSONVar masterchange;
+//       masterchange["type"] = 8;
+//       masterchange["newmaster"] = MASTER_NODE;
+//       mesh.sendBroadcast(JSON.stringify(masterchange));
+//     } else if (Master_countdown > 0) {
+//       Master_countdown = Master_countdown - 5;
 
-    } else {
-      JSONVar requestNodeNumber;
-      requestNodeNumber["type"] = 6;
-      
-      mesh.sendBroadcast(JSON.stringify(requestNodeNumber));
-    }
-  }
-}
+//     } else {
+//       JSONVar requestNodeNumber;
+//       requestNodeNumber["type"] = 6;
+//       mesh.sendBroadcast(JSON.stringify(requestNodeNumber));
+//     }
+//   }
+// }
 
 void sendReply7 () {
   // verstuurt het antwoord op een type 6 bericht
@@ -349,20 +353,33 @@ void receivedCallback( uint32_t from, String &msg ) {
       logs[aantal_logs].pres = pres;
       logs[aantal_logs].logged_at = logged_at;
       aantal_logs += 1;
-      MASTER_NODE = messageObject["masternode"];
+      //MASTER_NODE = messageObject["masternode"];
     }
-  } else if ((type == 5) && (AP_NODE == nodeNumber)) {
+  //} else if ((type == 5) && (AP_NODE == nodeNumber)) {
     // als de master nog leeft zet de timer weer terug op 30 seconde
-    Master_countdown = 10;
+    //int nodeid = messageObject["nodeid"];
+    // if (nodeid == MASTER_NODE) {
+    //   Master_countdown = 15;
+    // }
 
-  } else if (type == 6) {
-    sendReply7();
+  // } else if (type == 6) {
+  //   sendReply7();
 
-  } else if ((type == 7) && (AP_NODE == nodeNumber)) {
-    int newnode = messageObject["onlinenode"];
+  // } else if ((type == 7) && (AP_NODE == nodeNumber)) {
+  //   int newnode = messageObject["onlinenode"];
     
-    Onlinenode = newnode;
+  //   Onlinenode = newnode;
     
+  // } else if (type == 8) {
+  //   int master = messageObject["newmaster"];
+  //   MASTER_NODE = master;
+
+  //   if (nodeNumber == MASTER_NODE) {
+  //     // Master node connect met 
+  //     WiFi.mode(WIFI_AP_STA); //Optional
+  //     WiFi.begin(ssid, passphrase);
+  //   }
+
   } else if ((type == 99) && (MASTER_NODE == nodeNumber)){
     int node = messageObject["node"];
     double temp = messageObject["temp"];
@@ -434,6 +451,9 @@ void onDroppedConnection(unsigned int nodeId) {
 
 void sendLogsToServer() {
   if (nodeNumber == MASTER_NODE) {
+    // Master node connect met 
+    // WiFi.mode(WIFI_AP_STA); //Optional
+    // WiFi.begin(ssid, passphrase);
     JSONVar sendLogs;
     for (int index_log = 0; index_log < aantal_logs; index_log++) {
       //JSONVar sendLogs;
@@ -448,13 +468,14 @@ void sendLogsToServer() {
     HTTPClient http;
     send_logs = JSON.stringify(sendLogs);
     //Serial.printf(send_logs);
-    http.begin(client, "http://192.168.4.23:1880/sync");
+    http.begin(client, "http://192.168.4.23:3000/api/logs");
     http.addHeader("Content-Type", "application/json");
     int httpResponseCode = http.POST(send_logs);
     Serial.print("HTTP Response code: ");
     Serial.println(httpResponseCode);
     // End connection
     http.end();
+    // mesh.init( MESH_PREFIX, MESH_PASSWORD, &userScheduler, MESH_PORT );
     if (httpResponseCode != -1) {
       sendEmptyLogsMessage();
       memset(logs, 0, 500 * sizeof(logs));
@@ -476,7 +497,7 @@ void sendAlertToServer(int node, double hum, double temp, double pres, time_t lo
     HTTPClient http;
     send_alert = JSON.stringify(sendAlert);
     //Serial.printf(send_logs);
-    http.begin(client, "http://192.168.4.23:1880/alert");
+    http.begin(client, "http://192.168.4.23:3000/api/alert");
     http.addHeader("Content-Type", "application/json");
     int httpResponseCode = http.POST(send_alert);
     Serial.print("HTTP Response code: ");
@@ -537,14 +558,14 @@ void setup() {
 
   userScheduler.addTask(syncLogsWithRasperry);
 
-  userScheduler.addTask(MastercountTask);
+  //userScheduler.addTask(MastercountTask);
 
   taskSendMessage.enable();
   storeLocalSensorReadings.enable();
   checkStatusTask.enable();
   sendAliveTask.enable();
   syncLogsWithRasperry.enable();
-  MastercountTask.enable();
+  //MastercountTask.enable();
 
   if (nodeNumber == AP_NODE) {
     Serial.print("Setting soft-AP configuration ... ");
