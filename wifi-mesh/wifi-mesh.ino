@@ -52,7 +52,7 @@ ESP32Time rtc(3600);
 int Onlinenode = NULL;
 
 // Identifier voor deze node
-int nodeNumber = 1;
+int nodeNumber = 6;
 
 // Online nodes
 int onlineNodes[] = {};
@@ -214,7 +214,8 @@ void storeLocalSensorData() {
   // Checken hoe groot de huidige array is
   // alternatief: aantal_logs = _countof(localData);
   if (aantal_logs_local >= 10) {
-    for (int log_index = aantal_logs_local - 2; log_index < 0; log_index--) {
+    for (int log_index = (aantal_logs_local - 2); log_index >= 0; log_index--) {
+      //Serial.printf("dit is de log_index: %d\n", log_index);
       localData[log_index+1].temp = localData[log_index].temp;
       localData[log_index+1].hum = localData[log_index].hum;
       localData[log_index+1].logged_at = localData[log_index].logged_at;
@@ -222,37 +223,41 @@ void storeLocalSensorData() {
     localData[0].temp = messageObject["temp"];
     localData[0].hum = messageObject["hum"];
     localData[0].logged_at = messageObject["logged_at"];
+    //Serial.printf("%lf: %lf: %lf: %lf: %lf: %lf: %lf: %lf: %lf\n", localData[0].hum, localData[1].hum, localData[2].hum, localData[3].hum, localData[4].hum, localData[5].hum, localData[6].hum, localData[7].hum, localData[8].hum, localData[9].hum);
   }
   else {
     localData[9 - aantal_logs_local].temp = messageObject["temp"];
     localData[9 - aantal_logs_local].hum = messageObject["hum"];
     localData[9 - aantal_logs_local].logged_at = messageObject["logged_at"];
+    //Serial.printf("%lf: %lf: %lf: %lf: %lf: %lf: %lf: %lf: %lf\n", localData[0].hum, localData[1].hum, localData[2].hum, localData[3].hum, localData[4].hum, localData[5].hum, localData[6].hum, localData[7].hum, localData[8].hum, localData[9].hum);
     aantal_logs_local += 1;
   }
 }
 
 void checkStatus() {
-  Serial.printf("In checkstatus \n");
+  //Serial.printf("In checkstatus\n");
   if (aantal_logs_local == 10) {
     int temp_sum = 0;
     int hum_sum = 0;
     int average_hum = 0;
     int average_temp = 0;
-    Serial.printf("In if, voor for");
+    //Serial.printf("In if, voor for");
     for (int log_index = 1; log_index < aantal_logs_local; log_index++) {
       temp_sum += localData[log_index].temp;
+      //Serial.printf("%d\n", temp_sum);
     }
     for (int log_index = 1; log_index < aantal_logs_local; log_index++) {
       hum_sum += localData[log_index].hum;
+      //Serial.printf("%d\n", hum_sum);
     }
-    Serial.printf("In if, na for");
+    //Serial.printf("In if, na for");
     average_hum = hum_sum / (aantal_logs_local - 1);
     Serial.printf("%d, %d\n", average_hum, hum_sum);
-    int current_hum = localData[0].hum;
+    float current_hum = localData[0].hum;
     Serial.printf("%d\n", current_hum);
     average_temp = temp_sum / (aantal_logs_local - 1);
-    int current_temp = localData[0].temp;
-    if ((current_hum / average_hum) > 1) {
+    float current_temp = localData[0].temp;
+    if ((current_hum / average_hum) > 1.6) {
       Serial.printf("Voor alert\n");
       JSONVar alert;
       alert["type"] = 99;
@@ -263,7 +268,7 @@ void checkStatus() {
       time_t current_time = time(NULL);
       alert["logged_at"] = current_time;
       mesh.sendBroadcast(JSON.stringify(alert));
-      Serial.printf("ALERT");
+      Serial.printf("ALERT\n");
     }
   }
 }
