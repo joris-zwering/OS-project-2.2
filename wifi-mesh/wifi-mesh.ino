@@ -349,7 +349,7 @@ void receivedCallback( uint32_t from, String &msg ) {
       logs[aantal_logs].pres = pres;
       logs[aantal_logs].logged_at = logged_at;
       aantal_logs += 1;
-      MASTER_NODE = messgeObject["masternode"];
+      MASTER_NODE = messageObject["masternode"];
     }
   } else if ((type == 5) && (AP_NODE == nodeNumber)) {
     // als de master nog leeft zet de timer weer terug op 30 seconde
