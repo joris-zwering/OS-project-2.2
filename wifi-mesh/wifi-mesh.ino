@@ -46,7 +46,7 @@ const char *passphrase = "987654321";
 ESP32Time rtc(3600);
 
 // Countdown tot nieuwe masternode gekozen wordt
-int Master_countdown = 20;
+int Master_countdown = 10;
 
 // Het nodeid voor de nieuwe masternode
 int Onlinenode = NULL;
@@ -170,6 +170,7 @@ void sendReply4 (int nodeid) {
     msg4["hum"] = logs[log_index].hum;
     msg4["pres"] = logs[log_index].pres;
     msg4["logged_at"] = logs[log_index].logged_at;
+    msg3["masternode"] = MASTER_NODE;
     mesh.sendBroadcast(JSON.stringify(msg4));
   }
 }
@@ -228,7 +229,7 @@ void storeLocalSensorData() {
 }
 
 void checkStatus() {
-  if (aantal_logs_local > 1) {
+  if (aantal_logs_local == 10) {
     int temp_sum = 0;
     int hum_sum = 0;
     for (int log_index = 1; log_index < aantal_logs_local; log_index++) {
@@ -266,7 +267,7 @@ void Mastercount() {
   if (nodeNumber == AP_NODE) {
     if (Onlinenode != NULL) {
       MASTER_NODE = Onlinenode;
-      Master_countdown = 20;
+      Master_countdown = 10;
       Onlinenode = NULL;
 
     } else if (Master_countdown > 0) {
@@ -348,10 +349,11 @@ void receivedCallback( uint32_t from, String &msg ) {
       logs[aantal_logs].pres = pres;
       logs[aantal_logs].logged_at = logged_at;
       aantal_logs += 1;
+      MASTER_NODE = messgeObject["masternode"];
     }
   } else if ((type == 5) && (AP_NODE == nodeNumber)) {
     // als de master nog leeft zet de timer weer terug op 30 seconde
-    Master_countdown = 20;
+    Master_countdown = 10;
 
   } else if (type == 6) {
     sendReply7();
