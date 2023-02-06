@@ -484,7 +484,7 @@ void sendLogsToServer() {
     HTTPClient http;
     send_logs = JSON.stringify(sendLogs);
     //Serial.printf(send_logs);
-    http.begin(client, "http://192.168.4.25:3000/api/hello");
+    http.begin(client, "http://192.168.4.25:3000/api/logs");
     http.addHeader("Content-Type", "application/json");
     int httpResponseCode = http.POST(send_logs);
     Serial.print("HTTP Response code: ");
@@ -513,7 +513,7 @@ void sendAlertToServer(int node, double hum, double temp, double pres, time_t lo
     HTTPClient http;
     send_alert = JSON.stringify(sendAlert);
     //Serial.printf(send_logs);
-    http.begin(client, "http://192.168.4.25:3000/api/hello");
+    http.begin(client, "http://192.168.4.25:3000/api/alert");
     http.addHeader("Content-Type", "application/json");
     int httpResponseCode = http.POST(send_alert);
     Serial.print("HTTP Response code: ");
