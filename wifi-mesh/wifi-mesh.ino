@@ -213,9 +213,11 @@ void storeLocalSensorData() {
 
   // Checken hoe groot de huidige array is
   // alternatief: aantal_logs = _countof(localData);
-  if (aantal_logs_local >= 9) {
-    for (int log_index = aantal_logs_local - 1; log_index < 0; log_index--) {
-      localData[log_index] = localData[log_index+1];
+  if (aantal_logs_local >= 10) {
+    for (int log_index = aantal_logs_local - 2; log_index < 0; log_index--) {
+      localData[log_index+1].temp = localData[log_index].temp;
+      localData[log_index+1].hum = localData[log_index].hum;
+      localData[log_index+1].logged_at = localData[log_index].logged_at;
     }
     localData[0].temp = messageObject["temp"];
     localData[0].hum = messageObject["hum"];
@@ -230,20 +232,28 @@ void storeLocalSensorData() {
 }
 
 void checkStatus() {
+  Serial.printf("In checkstatus \n");
   if (aantal_logs_local == 10) {
     int temp_sum = 0;
     int hum_sum = 0;
+    int average_hum = 0;
+    int average_temp = 0;
+    Serial.printf("In if, voor for");
     for (int log_index = 1; log_index < aantal_logs_local; log_index++) {
       temp_sum += localData[log_index].temp;
     }
     for (int log_index = 1; log_index < aantal_logs_local; log_index++) {
       hum_sum += localData[log_index].hum;
     }
-    int average_hum = hum_sum / (aantal_logs_local - 1);
+    Serial.printf("In if, na for");
+    average_hum = hum_sum / (aantal_logs_local - 1);
+    Serial.printf("%d, %d\n", average_hum, hum_sum);
     int current_hum = localData[0].hum;
-    int average_temp = temp_sum / (aantal_logs_local - 1);
+    Serial.printf("%d\n", current_hum);
+    average_temp = temp_sum / (aantal_logs_local - 1);
     int current_temp = localData[0].temp;
-    if (((current_temp / average_temp) < 0.9) || ((current_hum / average_hum) > 0.8)) {
+    if ((current_hum / average_hum) > 1) {
+      Serial.printf("Voor alert\n");
       JSONVar alert;
       alert["type"] = 99;
       alert["node"] = nodeNumber;
@@ -469,7 +479,7 @@ void sendLogsToServer() {
     HTTPClient http;
     send_logs = JSON.stringify(sendLogs);
     //Serial.printf(send_logs);
-    http.begin(client, "http://192.168.4.24:3000/api/logs");
+    http.begin(client, "http://192.168.4.25:3000/api/hello");
     http.addHeader("Content-Type", "application/json");
     int httpResponseCode = http.POST(send_logs);
     Serial.print("HTTP Response code: ");
@@ -498,7 +508,7 @@ void sendAlertToServer(int node, double hum, double temp, double pres, time_t lo
     HTTPClient http;
     send_alert = JSON.stringify(sendAlert);
     //Serial.printf(send_logs);
-    http.begin(client, "http://192.168.4.24:3000/api/alert");
+    http.begin(client, "http://192.168.4.25:3000/api/hello");
     http.addHeader("Content-Type", "application/json");
     int httpResponseCode = http.POST(send_alert);
     Serial.print("HTTP Response code: ");
