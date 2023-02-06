@@ -46,7 +46,7 @@ const char *passphrase = "987654321";
 ESP32Time rtc(3600);
 
 // Countdown tot nieuwe masternode gekozen wordt
-int Master_countdown = 15;
+//int Master_countdown = 15;
 
 // Het nodeid voor de nieuwe masternode
 int Onlinenode = NULL;
@@ -243,7 +243,7 @@ void checkStatus() {
     int current_hum = localData[0].hum;
     int average_temp = temp_sum / (aantal_logs_local - 1);
     int current_temp = localData[0].temp;
-    if (((current_temp / average_temp) < 0.9) && ((current_hum / average_hum) < 0.8)) {
+    if (((current_temp / average_temp) < 0.9) || ((current_hum / average_hum) > 0.8)) {
       JSONVar alert;
       alert["type"] = 99;
       alert["node"] = nodeNumber;
@@ -266,7 +266,7 @@ void sendEmptyLogsMessage() {
 
 // void Mastercount() {
 //   if (nodeNumber == AP_NODE) {
-//     if (Onlinenode != NULL) {
+//     if ((Onlinenode != NULL) && (Onlinenode != 2)) {
 //       MASTER_NODE = Onlinenode;
 //       Master_countdown = 15;
 //       Onlinenode = NULL;
@@ -355,20 +355,21 @@ void receivedCallback( uint32_t from, String &msg ) {
       aantal_logs += 1;
       //MASTER_NODE = messageObject["masternode"];
     }
-  //} else if ((type == 5) && (AP_NODE == nodeNumber)) {
-    // als de master nog leeft zet de timer weer terug op 30 seconde
-    //int nodeid = messageObject["nodeid"];
-    // if (nodeid == MASTER_NODE) {
-    //   Master_countdown = 15;
-    // }
+  // } else if ((type == 5) && (AP_NODE == nodeNumber)) {
+  //   //als de master nog leeft zet de timer weer terug op 30 seconde
+  //   int nodeid = messageObject["nodeid"];
+  //   //if (nodeid == MASTER_NODE) {
+  //   //  Master_countdown = 15;
+  //   //}
 
   // } else if (type == 6) {
-  //   sendReply7();
+  //   //sendReply7();
 
   // } else if ((type == 7) && (AP_NODE == nodeNumber)) {
-  //   int newnode = messageObject["onlinenode"];
-    
-  //   Onlinenode = newnode;
+  //   //int newnode = messageObject["onlinenode"];
+  //   //if (newnode != 2) {
+  //   //  Onlinenode = newnode;
+  //   //}
     
   // } else if (type == 8) {
   //   int master = messageObject["newmaster"];
@@ -468,7 +469,7 @@ void sendLogsToServer() {
     HTTPClient http;
     send_logs = JSON.stringify(sendLogs);
     //Serial.printf(send_logs);
-    http.begin(client, "http://192.168.4.23:3000/api/logs");
+    http.begin(client, "http://192.168.4.24:3000/api/logs");
     http.addHeader("Content-Type", "application/json");
     int httpResponseCode = http.POST(send_logs);
     Serial.print("HTTP Response code: ");
@@ -497,7 +498,7 @@ void sendAlertToServer(int node, double hum, double temp, double pres, time_t lo
     HTTPClient http;
     send_alert = JSON.stringify(sendAlert);
     //Serial.printf(send_logs);
-    http.begin(client, "http://192.168.4.23:3000/api/alert");
+    http.begin(client, "http://192.168.4.24:3000/api/alert");
     http.addHeader("Content-Type", "application/json");
     int httpResponseCode = http.POST(send_alert);
     Serial.print("HTTP Response code: ");
