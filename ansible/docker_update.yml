@@ -32,3 +32,38 @@
         image: nodered/node-red
         state: started
         restart: yes
+
+    - name: get new version npm
+      become: true
+      command: npm install -g n
+    
+    - name: install new version npm
+      become: true
+      command: n 14.21.2
+
+    - name: clone github repository
+      become: true
+      ansible.builtin.git:
+        repo: 'https://github.com/joris-zwering/Os-project-front-end'
+        dest: /etc/application/
+        clone: yes
+        update: no
+
+    - name: install npm
+      become: true
+      command: chdir=/etc/application npm install
+
+    - name: Run development server
+      become: true
+      command: npm install pm2 -g
+
+    - name: Go to the folder and execute command
+      become: true
+      command: chdir=/etc/application pm2 start "npm run dev" --name Fronted-end
+
+    
+    
+
+
+
+
