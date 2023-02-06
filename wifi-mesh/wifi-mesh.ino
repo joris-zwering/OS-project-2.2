@@ -52,7 +52,7 @@ int Master_countdown = 10;
 int Onlinenode = NULL;
 
 // Identifier voor deze node
-int nodeNumber = 1;
+int nodeNumber = 5;
 
 // Online nodes
 int onlineNodes[] = {};
@@ -170,7 +170,7 @@ void sendReply4 (int nodeid) {
     msg4["hum"] = logs[log_index].hum;
     msg4["pres"] = logs[log_index].pres;
     msg4["logged_at"] = logs[log_index].logged_at;
-    msg3["masternode"] = MASTER_NODE;
+    msg4["masternode"] = MASTER_NODE;
     mesh.sendBroadcast(JSON.stringify(msg4));
   }
 }
