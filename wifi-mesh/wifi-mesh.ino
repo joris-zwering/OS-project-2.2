@@ -42,7 +42,7 @@ IPAddress subnet(255,255,255,0);
 const char *ssid = "Config_Node_NetWerk";
 const char *passphrase = "987654321";
 
-// ESP32 time rtc
+//ESP32Time rtc;
 ESP32Time rtc(3600);
 
 // Countdown tot nieuwe masternode gekozen wordt
@@ -66,6 +66,7 @@ Adafruit_BME280 bme;
 // String to send to other nodes with sensor readings
 String readings;
 String send_logs;
+String send_alert;
 
 Scheduler userScheduler; 
 painlessMesh  mesh;
@@ -79,6 +80,7 @@ void sendAlive();
 void sendMessage3();
 void sendReply4(int nodeid);
 void sendLogsToServer();
+void sendAlertToServer(int node, double hum, double temp, double pres, time_t logged_at);
 String getReadings();
 void Mastercount();
 
@@ -240,15 +242,15 @@ void checkStatus() {
     int average_temp = temp_sum / (aantal_logs_local - 1);
     int current_temp = localData[0].temp;
     if (((current_temp / average_temp) < 0.9) && ((current_hum / average_hum) < 0.8)) {
-      // JSONVar alert;
-      // alert["type"] = 99;
-      // alert["node"] = nodeNumber;
-      // alert["temp"] = bme.readTemperature();
-      // alert["hum"] = bme.readHumidity();
-      // alert["pres"] = bme.readPressure()/100.0F;
-      // time_t current_time = time(NULL);
-      // alert["logged_at"] = current_time;
-      // mesh.sendBroadcast(JSON.stringify(alert));
+      JSONVar alert;
+      alert["type"] = 99;
+      alert["node"] = nodeNumber;
+      alert["temp"] = bme.readTemperature();
+      alert["hum"] = bme.readHumidity();
+      alert["pres"] = bme.readPressure()/100.0F;
+      time_t current_time = time(NULL);
+      alert["logged_at"] = current_time;
+      mesh.sendBroadcast(JSON.stringify(alert));
       Serial.printf("ALERT");
     }
   }
@@ -372,7 +374,7 @@ void receivedCallback( uint32_t from, String &msg ) {
     logs[aantal_logs].pres = pres;
     logs[aantal_logs].logged_at = logged_at;
     aantal_logs += 1;
-    sendLogsToServer(); // VERSCHIL CHECKEN TUSSEN /ALERT EN /SYNC
+    sendAlertToServer(node, hum, temp, pres, logged_at);
   }
 }
 
@@ -456,6 +458,29 @@ void sendLogsToServer() {
       memset(logs, 0, 500 * sizeof(logs));
       aantal_logs = 0;
     }
+  }
+}
+
+void sendAlertToServer(int node, double hum, double temp, double pres, time_t logged_at) {
+  if (nodeNumber == MASTER_NODE) {
+    JSONVar sendAlert;
+    sendAlert["nodeId"] = node;
+    sendAlert["humidity"] = hum;
+    sendAlert["pressure"] = pres;
+    sendAlert["temperature"] = temp;
+    sendAlert["logged_at"] = logged_at;
+    //Serial.printf("%d\n", index_log);
+    WiFiClient client;
+    HTTPClient http;
+    send_alert = JSON.stringify(sendAlert);
+    //Serial.printf(send_logs);
+    http.begin(client, "http://192.168.4.23:1880/alert");
+    http.addHeader("Content-Type", "application/json");
+    int httpResponseCode = http.POST(send_alert);
+    Serial.print("HTTP Response code: ");
+    Serial.println(httpResponseCode);
+    // End connection
+    http.end();
   }
 }
 
