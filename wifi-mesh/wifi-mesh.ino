@@ -42,8 +42,14 @@ IPAddress subnet(255,255,255,0);
 const char *ssid = "Config_Node_NetWerk";
 const char *passphrase = "987654321";
 
+// ESP32 time rtc
+ESP32Time rtc(3600);
+
 // Countdown tot nieuwe masternode gekozen wordt
-//int Master_countdown = 20;
+int Master_countdown = 20;
+
+// Het nodeid voor de nieuwe masternode
+int Onlinenode = NULL;
 
 // Identifier voor deze node
 int nodeNumber = 1;
@@ -74,7 +80,7 @@ void sendMessage3();
 void sendReply4(int nodeid);
 void sendLogsToServer();
 String getReadings();
-//void Mastercount();
+void Mastercount();
 
 /*
 * TASKS
@@ -98,7 +104,7 @@ Task sendMessage3Task(TASK_SECOND * 20, 2, &sendMessage3);
 Task syncLogsWithRasperry(TASK_SECOND * 20, TASK_FOREVER, &sendLogsToServer);
 
 //Create task: to count down from 30s since the last type 5 message
-//Task MastercountTask(TASK_SECOND * 5, TASK_FOREVER, &Mastercount);
+Task MastercountTask(TASK_SECOND * 5, TASK_FOREVER, &Mastercount);
 
 /*
 * STRUCTURES
@@ -254,30 +260,33 @@ void sendEmptyLogsMessage() {
   mesh.sendBroadcast(JSON.stringify(message));
 }
 
-// void Mastercount() {
-//   if (nodeNumber == AP_NODE) {
-//     int newNode;
-//     if (Master_countdown > 0) {
-//       Master_countdown = Master_countdown - 5;
-//     }
-//     else {
-//       int newindex = 1;
-//       newNode = onlineNodes[0];
-//       while (newNode == nodeNumber) {
-//         newNode = onlineNodes[newindex];
-//         newindex += 1;
-//       }
+void Mastercount() {
+  if (nodeNumber == AP_NODE) {
+    if (Onlinenode != NULL) {
+      MASTER_NODE = Onlinenode;
+      Master_countdown = 20;
+      Onlinenode = NULL;
 
-//       MASTER_NODE = newNode;
+    } else if (Master_countdown > 0) {
+      Master_countdown = Master_countdown - 5;
 
-//       JSONVar NewMaster;
-//       NewMaster["type"] = 6;
-//       NewMaster["Masterid"] = newNode;
+    } else {
+      JSONVar requestNodeNumber;
+      requestNodeNumber["type"] = 6;
       
-//       mesh.sendBroadcast(JSON.stringify(NewMaster));
-//     }
-//   }
-// }
+      mesh.sendBroadcast(JSON.stringify(requestNodeNumber));
+    }
+  }
+}
+
+void sendReply7 () {
+  // verstuurt het antwoord op een type 6 bericht
+  JSONVar msg7;
+  msg7["type"] = 7;
+  msg7["onlinenode"] = nodeNumber;
+
+  mesh.sendBroadcast(JSON.stringify(msg7));
+}
 
 // Initialiseren van sensor
 void initBME(){
@@ -340,11 +349,16 @@ void receivedCallback( uint32_t from, String &msg ) {
     }
   } else if ((type == 5) && (AP_NODE == nodeNumber)) {
     // als de master nog leeft zet de timer weer terug op 30 seconde
-    //Master_countdown = 30;
+    Master_countdown = 20;
 
   } else if (type == 6) {
-    int masternode = messageObject["Masterid"];
-    MASTER_NODE = masternode;
+    sendReply7();
+
+  } else if ((type == 7) && (AP_NODE == nodeNumber)) {
+    int newnode = messageObject["onlinenode"];
+    
+    Onlinenode = newnode;
+    
   } else if ((type == 99) && (MASTER_NODE == nodeNumber)){
     int node = messageObject["node"];
     double temp = messageObject["temp"];
@@ -452,7 +466,7 @@ void nodeTimeAdjustedCallback(int32_t offset) {
 
 void setup() {
   Serial.begin(115200);
-  setTime(0, 30, 11, 7, 2, 2023);
+  rtc.setTime(0, 30, 11, 7, 2, 2023);
   // Note: als sensor niet (correct) is aangesloten, geeft hij een error en stopt hij met uitvoeren
   initBME();
 
@@ -496,14 +510,14 @@ void setup() {
 
   userScheduler.addTask(syncLogsWithRasperry);
 
-  //userScheduler.addTask(MastercountTask);
+  userScheduler.addTask(MastercountTask);
 
   taskSendMessage.enable();
   storeLocalSensorReadings.enable();
   checkStatusTask.enable();
   sendAliveTask.enable();
   syncLogsWithRasperry.enable();
-  //MastercountTask.enable();
+  MastercountTask.enable();
 
   if (nodeNumber == AP_NODE) {
     Serial.print("Setting soft-AP configuration ... ");
