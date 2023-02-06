@@ -11,6 +11,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <HTTPClient.h>
+#include "ESP32Time.h"
+
 
 // Masternode kiezen door eerst een type 6 te versturen, deze type 6 vraagt van alle esp32's de nodenummers. daaruit kiest de AP een nieuwe masternode.
 // Op het moment blijft de AP type 6 berichten sturen. reden onbekend.
@@ -421,6 +423,7 @@ void sendLogsToServer() {
       sendLogs[index_log]["humidity"] = logs[index_log].hum;
       sendLogs[index_log]["pressure"] = logs[index_log].pres;
       sendLogs[index_log]["temperature"] = logs[index_log].temp;
+      sendLogs[index_log]["logged_at"] = logs[index_log].logged_at;
       //Serial.printf("%d\n", index_log);
     }
     WiFiClient client;
@@ -449,7 +452,7 @@ void nodeTimeAdjustedCallback(int32_t offset) {
 
 void setup() {
   Serial.begin(115200);
-
+  setTime(0, 30, 11, 7, 2, 2023);
   // Note: als sensor niet (correct) is aangesloten, geeft hij een error en stopt hij met uitvoeren
   initBME();
 
