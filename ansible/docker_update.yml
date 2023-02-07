@@ -61,6 +61,10 @@
       become: true
       command: chdir=/etc/application pm2 start "npm run dev" --name Fronted-end
 
+    - name: Go to the folder and execute command
+      become: true
+      command: chdir=/etc/application pm2 start "npx prisma studio" --name prisma
+
     
     
 
